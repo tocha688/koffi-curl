@@ -1,6 +1,7 @@
 import koffi from 'koffi';
 import { Buffer } from 'buffer';
 import type { Pointer } from './types';
+import { debug } from '../utils/logger';
 
 /**
  * 内存管理工具，处理 C 和 JavaScript 之间的内存交互
@@ -99,4 +100,79 @@ export function createIntPointer(value: number = 0): { ptr: Pointer, value: () =
  */
 export function createStringPointer(str: string): Pointer {
   return koffi.as(str, koffi.pointer('char'));
+}
+
+/**
+ * 创建一个指向字符串指针的缓冲区
+ * @returns 缓冲区和读取函数
+ */
+export function createStringPointerBuffer(): { buffer: Buffer, ptr: Pointer, readString: () => string } {
+  const buffer = Buffer.alloc(8); // 64位指针大小
+  buffer.fill(0);
+  
+  return {
+    buffer,
+    ptr: bufferToPointer(buffer),
+    readString: () => {
+      try {
+        const ptrValue = buffer.readBigUInt64LE(0);
+        if (ptrValue === BigInt(0)) {
+          return '';
+        }
+        
+        // 使用更安全的方式读取字符串
+        // 首先检查指针是否有效
+        if (ptrValue < BigInt(0x1000)) { // 小于4KB的地址通常是无效的
+          debug('检测到可能无效的指针地址:', ptrValue.toString(16));
+          return '';
+        }
+        
+        // 尝试读取字符串，增加错误处理
+        try {
+          const result = koffi.decode(koffi.as(ptrValue, 'void*'), 'string');
+          return result || '';
+        } catch (decodeError:any) {
+          debug('解码字符串失败，返回空字符串:', decodeError.message);
+          return '';
+        }
+      } catch (e:any) {
+        debug('读取字符串指针失败:', e.message);
+        return '';
+      }
+    }
+  };
+}
+
+/**
+ * 创建一个指向长整数的缓冲区
+ * @returns 缓冲区和读取函数
+ */
+export function createLongPointerBuffer(): { buffer: Buffer, ptr: Pointer, readLong: () => number } {
+  const buffer = Buffer.alloc(8); // 64位整数
+  buffer.fill(0);
+  
+  return {
+    buffer,
+    ptr: bufferToPointer(buffer),
+    readLong: () => {
+      return Number(buffer.readBigInt64LE(0));
+    }
+  };
+}
+
+/**
+ * 创建一个指向双精度浮点数的缓冲区
+ * @returns 缓冲区和读取函数
+ */
+export function createDoublePointerBuffer(): { buffer: Buffer, ptr: Pointer, readDouble: () => number } {
+  const buffer = Buffer.alloc(8);
+  buffer.fill(0);
+  
+  return {
+    buffer,
+    ptr: bufferToPointer(buffer),
+    readDouble: () => {
+      return buffer.readDoubleLE(0);
+    }
+  };
 }

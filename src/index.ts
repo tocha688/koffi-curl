@@ -9,3 +9,21 @@ export {
 
 // 导出版本信息
 export const version = '0.1.0';
+
+// 导出异步支持
+export * from './core/async';
+export * from './core/websocket';
+
+// 导出高级 API
+export * from './api';
+export * from './core/request';
+export * from './core/browser';
+
+// 导出绑定相关内容，但排除已经导出的
+export { constants as bindingConstants } from './bindings';
+
+// 为了向后兼容，保留原有导出
+export { libcurlVersion } from './bindings';
+
+// 导出日志工具
+export { logger, LogLevel } from './utils/logger';

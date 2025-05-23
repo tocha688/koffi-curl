@@ -271,6 +271,26 @@ function copyFilesRecursive(src, dest) {
     }
 }
 
+// 下载CA证书包
+async function downloadCACert() {
+    const caCertPath = path.join(__dirname, '..', 'lib', 'cacert.pem');
+    
+    if (fs.existsSync(caCertPath)) {
+        console.log('CA证书文件已存在');
+        return;
+    }
+    
+    try {
+        console.log('下载CA证书包...');
+        const caCertUrl = 'https://curl.se/ca/cacert.pem';
+        await downloadFile(caCertUrl, caCertPath);
+        console.log('CA证书包下载完成');
+    } catch (error) {
+        console.warn('CA证书包下载失败:', error.message);
+        console.warn('将使用系统默认CA证书配置');
+    }
+}
+
 // 主函数
 async function main() {
     try {
@@ -317,6 +337,9 @@ async function main() {
         
         // 更新arch配置中的libdir为新的统一库目录
         arch.libdir = libDir;
+        
+        // 下载CA证书包
+        await downloadCACert();
         
         console.log('下载和配置完成！');
         console.log('库目录文件列表:');

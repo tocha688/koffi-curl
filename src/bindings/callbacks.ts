@@ -1,7 +1,8 @@
 import koffi from 'koffi';
 import type { curl_write_callback, curl_header_callback, curl_xferinfo_callback, Pointer } from './types';
 import { saveReference, getReference, releaseReference, pointerToBuffer } from './memory';
-import { headerCallbackProto, progressCallbackProto, writeCallbackProto } from './library';
+import { headerCallbackProto, progressCallbackProto } from './library';
+import { debug } from '../utils/logger';
 
 /**
  * 管理和转换 libcurl 回调函数
@@ -25,13 +26,13 @@ export function createWriteCallback(
       const jsCallback = getReference(id) as (data: Buffer) => number;
       return jsCallback(data);
     } catch (err) {
-      console.error('Write callback 错误:', err);
+      debug('Write callback 错误:', err);
       return 0;
     }
   };
   const callbackId = nextCallbackId++;
   // 关键：确保 koffi.register 被调用，并存储/返回其结果
-  const functionPointer = koffi.register(writeCallback, koffi.pointer(writeCallbackProto));
+  const functionPointer = koffi.register(writeCallback, koffi.pointer(headerCallbackProto));
   REGISTERED_CALLBACKS.set(callbackId, functionPointer); // 存储注册后的指针
   return { callback: functionPointer, id: callbackId }; // 返回注册后的指针
 }
@@ -48,7 +49,7 @@ export function createHeaderCallback(
       const jsCallback = getReference(id) as (data: Buffer) => number;
       return jsCallback(data);
     } catch (err) {
-      console.error('Header callback 错误:', err);
+      debug('Header callback 错误:', err);
       return 0;
     }
   };
@@ -68,7 +69,7 @@ export function createProgressCallback(
       const jsCallback = getReference(id) as (dlTotal: number, dlNow: number, ulTotal: number, ulNow: number) => number;
       return jsCallback(dltotal, dlnow, ultotal, ulnow);
     } catch (err) {
-      console.error('Progress callback 错误:', err);
+      debug('Progress callback 错误:', err);
       return 0;
     }
   };

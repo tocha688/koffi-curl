@@ -2,6 +2,7 @@ import koffi from 'koffi';
 import { curl, constants, memory, callbacks } from '../bindings';
 import type { CURL, Pointer } from '../bindings/types';
 import { Buffer } from 'buffer';
+import { debug, warn } from '../utils/logger';
 
 /**
  * Curl 类，包装 libcurl 基础功能
@@ -88,7 +89,8 @@ export class Curl {
         case constants.CURLOPT.COOKIE:
         case constants.CURLOPT.COOKIEFILE:
         case constants.CURLOPT.COOKIEJAR:
-        case constants.CURLOPT.CUSTOMREQUEST: {
+        case constants.CURLOPT.CUSTOMREQUEST:
+        case constants.CURLOPT.CAINFO: {
           const strValue = String(value);
           const result = curl.curl_easy_setopt_string(this.handle, option, strValue);
           if (result !== 0) {
@@ -109,7 +111,10 @@ export class Curl {
         case constants.CURLOPT.HTTP_VERSION:
         case constants.CURLOPT.PORT:
         case constants.CURLOPT.MAXREDIRS:
-        case constants.CURLOPT.POSTFIELDSIZE: {
+        case constants.CURLOPT.POSTFIELDSIZE:
+        case constants.CURLOPT.POST:
+        case constants.CURLOPT.NOBODY:
+        case constants.CURLOPT.SSLVERSION: {
           const numValue = Number(value);
           const result = curl.curl_easy_setopt_long(this.handle, option, numValue);
           if (result !== 0) {
@@ -133,7 +138,7 @@ export class Curl {
             ? callbacks.createWriteCallback(value)
             : callbacks.createHeaderCallback(value);
           
-          // 使用 curl_easy_setopt_pointer 传递回调函数指针
+          // 使用 curl_easy_setopt_callback 传递回调函数指针
           let result = curl.curl_easy_setopt_callback(this.handle, option, cb.callback);
           
           if (result !== 0) {
@@ -225,8 +230,8 @@ export class Curl {
           break;
         }
       }
-    } catch (err:any) {
-        console.error(err)
+    } catch (err: any) {
+      console.error(err);
       // 捕获并包装错误，提供更多上下文
       const optionName = Object.entries(constants.CURLOPT)
         .find(([_, val]) => val === option)?.[0] || option;
@@ -258,45 +263,46 @@ export class Curl {
       switch (infoType) {
         // 字符串类型
         case 0x100000: {
-          const ptr = memory.createStringPointer('');
+          const { ptr, readString } = memory.createStringPointerBuffer();
           const result = curl.curl_easy_getinfo_string(this.handle, info, ptr);
           if (result !== 0) {
-            throw new Error(`获取信息失败: ${curl.curl_easy_strerror(result)}`);
+            debug(`获取字符串信息失败 (${info}): ${curl.curl_easy_strerror(result)}`);
+            return '';
           }
-          // 使用 koffi.decode 读取字符串
-          return koffi.decode(ptr, 'string');
+          const stringResult = readString();
+          return stringResult;
         }
         
         // 长整数类型
         case 0x200000: {
-          const intPtr = memory.createIntPointer();
-          const result = curl.curl_easy_getinfo_long(this.handle, info, intPtr.ptr);
+          const { ptr, readLong } = memory.createLongPointerBuffer();
+          const result = curl.curl_easy_getinfo_long(this.handle, info, ptr);
           if (result !== 0) {
             throw new Error(`获取信息失败: ${curl.curl_easy_strerror(result)}`);
           }
-          return intPtr.value();
+          return readLong();
         }
         
         // 双精度浮点型
         case 0x300000: {
-          const buffer = Buffer.alloc(8);
-          const ptr = memory.bufferToPointer(buffer);
+          const { ptr, readDouble } = memory.createDoublePointerBuffer();
           const result = curl.curl_easy_getinfo_double(this.handle, info, ptr);
           if (result !== 0) {
             throw new Error(`获取信息失败: ${curl.curl_easy_strerror(result)}`);
           }
-          return buffer.readDoubleLE(0);
+          return readDouble();
         }
         
         // 指针类型
         case 0x400000: {
-          const ptrBuffer = Buffer.alloc(8); // 足够存放一个指针
-          const ptr = memory.bufferToPointer(ptrBuffer);
+          const buffer = Buffer.alloc(8);
+          const ptr = memory.bufferToPointer(buffer);
           const result = curl.curl_easy_getinfo_pointer(this.handle, info, ptr);
           if (result !== 0) {
             throw new Error(`获取信息失败: ${curl.curl_easy_strerror(result)}`);
           }
-          return koffi.decode(ptr, 'void*');
+          const ptrValue = buffer.readBigUInt64LE(0);
+          return ptrValue === BigInt(0) ? null : koffi.as(ptrValue, 'void*');
         }
         
         // 不支持的类型
@@ -304,6 +310,12 @@ export class Curl {
           throw new Error(`不支持的信息类型: ${info.toString(16)}`);
       }
     } catch (err: any) {
+      // 对于字符串类型的错误，返回空字符串而不是抛出异常
+      if ((info & 0xf00000) === 0x100000) {
+        debug(`获取字符串信息失败，返回空字符串: ${err.message}`);
+        return '';
+      }
+      
       // 提供更详细的错误信息
       const infoName = Object.entries(constants.CURLINFO)
         .find(([_, val]) => val === info)?.[0] || info.toString();

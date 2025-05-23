@@ -70,7 +70,7 @@ const libcurl = koffi.load(getLibraryPath());
 
 // 定义回调原
 //size_t WriteCallbackProto(void*, size_t, size_t, void*)
-export const writeCallbackProto = koffi.proto('size_t WriteCallbackProto(void*, size_t, size_t, void*)');
+// export const writeCallbackProto = koffi.proto('size_t WriteCallbackProto(void*, size_t, size_t, void*)');
 export const headerCallbackProto = koffi.proto('size_t HeaderCallbackProto(void*, size_t, size_t, void*)');
 export const progressCallbackProto = koffi.proto('int ProgressCallbackProto(void*, double, double, double, double)');
 
@@ -90,12 +90,12 @@ export const curl = {
     curl_easy_setopt_string: libcurl.func('curl_easy_setopt', 'int', ['void*', 'int', 'string']),
     curl_easy_setopt_long: libcurl.func('curl_easy_setopt', 'int', ['void*', 'int', 'int64_t']),
     curl_easy_setopt_pointer: libcurl.func('curl_easy_setopt', 'int', ['void*', 'int', 'void*']),
-    curl_easy_setopt_callback: libcurl.func('curl_easy_setopt', 'int', ['void*', 'int', koffi.pointer(writeCallbackProto)]),
+    curl_easy_setopt_callback: libcurl.func('curl_easy_setopt', 'int', ['void*', 'int', koffi.pointer(headerCallbackProto)]),
 
     // 添加通用 curl_easy_setopt 函数，用于处理回调函数
     curl_easy_setopt: libcurl.func('curl_easy_setopt', 'int', ['void*', 'int', 'void*']),
 
-    // 添加特定类型的getinfo函数，避免使用可变参数
+    // 修复 getinfo 函数的参数类型 - 使用 char** 来接收字符串指针
     curl_easy_getinfo_string: libcurl.func('curl_easy_getinfo', 'int', ['void*', 'int', 'void*']),
     curl_easy_getinfo_long: libcurl.func('curl_easy_getinfo', 'int', ['void*', 'int', 'void*']),
     curl_easy_getinfo_double: libcurl.func('curl_easy_getinfo', 'int', ['void*', 'int', 'void*']),
