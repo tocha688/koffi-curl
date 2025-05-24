@@ -26,3 +26,7 @@ export { libcurlVersion } from './bindings';
 
 // 导出日志工具
 export { logger, LogLevel } from './utils/logger';
+
+//导出插件
+export { useAxiosPlug } from './plugs/axios';
+
