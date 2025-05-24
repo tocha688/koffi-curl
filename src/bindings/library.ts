@@ -2,7 +2,6 @@ import koffi from 'koffi';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import * as types from './types';
 
 /**
  * libcurl 库加载和管理
@@ -10,6 +9,18 @@ import * as types from './types';
 
 // 版本配置
 const CURL_VERSION = '1.0.0';
+
+export function getLibHome() {
+    // 构建库的相对路径
+    let libPath = path.join(__dirname, '..', 'lib');
+    if (!fs.existsSync(libPath)) {
+        libPath = path.join(__dirname, '..', '..', 'lib');
+    }
+    if (!fs.existsSync(libPath)) {
+        throw new Error(`找不到库目录: ${libPath}`);
+    }
+    return libPath;
+}
 
 // 获取当前运行的平台名称
 function getPlatformName(): string {
@@ -32,6 +43,7 @@ function getPlatformName(): string {
     throw new Error(`不支持的平台: ${platform}`);
 }
 
+
 // 获取库路径
 function getLibraryPath(): string {
     const platform = getPlatformName();
@@ -41,8 +53,7 @@ function getLibraryPath(): string {
                 os.arch();
 
     // 构建库的相对路径
-    const libPath = path.join(__dirname, '..', '..', 'lib', `${CURL_VERSION}-${platform}`);
-
+    const libPath = path.join(getLibHome(), `${CURL_VERSION}-${platform}`);
     if (!fs.existsSync(libPath)) {
         throw new Error(`找不到库目录: ${libPath}`);
     }

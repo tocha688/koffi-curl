@@ -1,15 +1,15 @@
 {
   "name": "koffi-curl",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Node.js libcurl bindings using koffi with browser fingerprint capabilities",
-  "main": "dist/cjs/index.js",
-  "module": "dist/esm/index.js",
-  "types": "dist/types/index.d.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js",
-      "types": "./dist/types/index.d.ts"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     },
     "./package.json": "./package.json"
   },
@@ -21,12 +21,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "npm run build:clean && npm run build:cjs && npm run build:esm && npm run build:types && npm run build:post",
-    "build:clean": "rimraf dist",
-    "build:cjs": "tsc -p tsconfig.cjs.json",
-    "build:esm": "tsc -p tsconfig.esm.json",
-    "build:types": "tsc -p tsconfig.types.json",
-    "build:post": "node scripts/build-post.js",
+    "build": "tsup",
+    "build:watch": "tsup --watch",
     "prepublishOnly": "npm run build",
     "test": "npm run build && node tests/run-tests.js",
     "test:cjs": "node tests/test-cjs.js",
@@ -71,8 +67,7 @@
   "devDependencies": {
     "@types/lodash": "^4.17.17",
     "@types/node": "^18.17.1",
-    "rimraf": "^6.0.1",
-    "ts-node": "^10.9.1",
+    "tsup": "^8.5.0",
     "typescript": "^5.1.6"
   },
   "engines": {

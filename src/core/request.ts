@@ -6,6 +6,7 @@ import { CURL_IMPERSONATE } from '../bindings/constants';
 import os from "os"
 import path from "path"
 import fs from "fs"
+import { getLibHome } from '../bindings/library';
 
 /**
  * HTTP 请求选项接口
@@ -116,7 +117,7 @@ function SSLVerification(curl: Curl, verifySsl?: boolean,isProxy?:boolean): void
     let caPath = null;
 
     // 首先尝试使用项目内置的CA证书
-    const projectCaPath = path.join(__dirname, '..', '..', 'lib', 'cacert.pem');
+    const projectCaPath = path.join(getLibHome(), 'cacert.pem');
     if (fs.existsSync(projectCaPath)) {
       caPath = projectCaPath;
       debug('使用项目CA证书包');
