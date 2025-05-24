@@ -2,6 +2,10 @@ import { Curl } from './curl';
 import { constants } from '../bindings';
 import { Buffer } from 'buffer';
 import { debug, warn, info } from '../utils/logger';
+import { CURL_IMPERSONATE } from '../bindings/constants';
+import os from "os"
+import path from "path"
+import fs from "fs"
 
 /**
  * HTTP 请求选项接口
@@ -17,7 +21,7 @@ export interface RequestOptions {
   maxRedirects?: number;
   proxy?: string;
   userAgent?: string;
-  impersonate?: string;
+  impersonate?: CURL_IMPERSONATE;
   verifySsl?: boolean;
 }
 
@@ -95,7 +99,7 @@ export class Request {
 
     // 设置浏览器指纹模拟
     if (opts.impersonate) {
-      this.setImpersonation(opts.impersonate);
+      this.curl.impersonate(opts.impersonate, true);
     }
 
     // 设置 SSL 验证
@@ -201,30 +205,6 @@ export class Request {
     this.curl.setopt(constants.CURLOPT.HTTPHEADER, headerList);
   }
 
-  private setImpersonation(browser: string): void {
-    // 使用 curl-impersonate 的浏览器指纹模拟功能
-    const browserMapping: { [key: string]: string } = {
-      'chrome': 'chrome110',
-      'firefox': 'firefox109',
-      'safari': 'safari15_5',
-      'edge': 'edge101'
-    };
-
-    const impersonateValue = browserMapping[browser.toLowerCase()] || browser;
-    this.curl.setopt(constants.CURLOPT.USERAGENT, this.getBrowserUserAgent(impersonateValue));
-  }
-
-  private getBrowserUserAgent(browser: string): string {
-    const userAgents: { [key: string]: string } = {
-      'chrome110': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-      'firefox109': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0',
-      'safari15_5': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15',
-      'edge101': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36 Edg/101.0.1210.53'
-    };
-
-    return userAgents[browser] || userAgents['chrome110'];
-  }
-
   private setupSSLVerification(verifySsl?: boolean): void {
     if (verifySsl === false) {
       // 显式禁用SSL验证
@@ -238,10 +218,6 @@ export class Request {
       this.curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 1);
       this.curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 2);
       
-      // 尝试设置系统CA证书路径
-      const os = require('os');
-      const path = require('path');
-      const fs = require('fs');
       
       let caPath = null;
       

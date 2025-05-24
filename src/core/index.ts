@@ -1,4 +1,3 @@
-import { Curl } from './curl';
+export { Curl } from './curl';
+export * from "./request"
 
-// 导出核心功能
-export { Curl };
