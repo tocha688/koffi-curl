@@ -99,7 +99,7 @@ function setRequestData(curl: Curl, data: any): void {
   curl.setopt(constants.CURLOPT.POSTFIELDS, postData);
   curl.setopt(constants.CURLOPT.HTTPHEADER, [`Content-Type: ${contentType}`]);
 }
-function SSLVerification(curl: Curl, verifySsl?: boolean): void {
+function SSLVerification(curl: Curl, verifySsl?: boolean,isProxy?:boolean): void {
   if (verifySsl === false) {
     // 显式禁用SSL验证
     curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
@@ -146,7 +146,9 @@ function SSLVerification(curl: Curl, verifySsl?: boolean): void {
     if (caPath) {
       debug(`设置CA证书路径: ${caPath}`);
       curl.setopt(constants.CURLOPT.CAINFO, caPath);
-      curl.setopt(constants.CURLOPT.PROXY_CAINFO, caPath);
+      if(isProxy){
+        curl.setopt(constants.CURLOPT.PROXY_CAINFO, caPath);
+      }
     }
 
     // 设置SSL选项以提高兼容性
@@ -303,7 +305,7 @@ async function request(options: RequestOptions): Promise<Response> {
   }
 
   // 设置 SSL 验证
-  SSLVerification(curl, opts.verifySsl);
+  SSLVerification(curl, opts.verifySsl,!!opts.proxy);
 
   // 执行请求
   return executeRequest(curl).finally(() => {

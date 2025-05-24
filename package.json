@@ -31,7 +31,8 @@
     "got": "^11.8.6",
     "koffi": "^2.6.14",
     "lodash": "^4.17.21",
-    "tar": "^6.2.0"
+    "tar": "^6.2.0",
+    "tough-cookie": "^5.1.2"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.17",

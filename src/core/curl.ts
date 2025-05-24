@@ -332,6 +332,7 @@ export class Curl {
 
   setHeaders( headers: { [key: string]: string }){
     const headerList = Object.entries(headers).map(([key, value]) => `${key}: ${value}`);
+    if(headerList.length === 0) return;
     this.setopt(constants.CURLOPT.HTTPHEADER, headerList);
   }
 

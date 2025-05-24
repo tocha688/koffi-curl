@@ -28,5 +28,5 @@ export { libcurlVersion } from './bindings';
 export { logger, LogLevel } from './utils/logger';
 
 //导出插件
-export { useAxiosPlug } from './plugs/axios';
+export * from './plugs/axios';
 
