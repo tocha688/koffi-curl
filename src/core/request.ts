@@ -146,9 +146,9 @@ function SSLVerification(curl: Curl, verifySsl?: boolean,isProxy?:boolean): void
     if (caPath) {
       debug(`设置CA证书路径: ${caPath}`);
       curl.setopt(constants.CURLOPT.CAINFO, caPath);
-      if(isProxy){
-        curl.setopt(constants.CURLOPT.PROXY_CAINFO, caPath);
-      }
+      // if(isProxy){
+      //   curl.setopt(constants.CURLOPT.PROXY_CAINFO, caPath);
+      // }
     }
 
     // 设置SSL选项以提高兼容性
