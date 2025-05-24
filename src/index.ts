@@ -15,8 +15,7 @@ export * from './core/async';
 export * from './core/websocket';
 
 // 导出高级 API
-export * from './api';
-export * from './core/request';
+export * as req from './core/request';
 export * from './core/browser';
 
 // 导出绑定相关内容，但排除已经导出的

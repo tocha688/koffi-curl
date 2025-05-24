@@ -1,4 +1,4 @@
-import { constants, Request, logger, LogLevel } from "../src";
+import { constants, req as curl, logger, LogLevel } from "../src";
 import { libcurlVersion } from "../src/bindings";
 
 // 只在测试时启用调试模式
@@ -6,7 +6,7 @@ import { libcurlVersion } from "../src/bindings";
 
 console.log(libcurlVersion());
 
-const curl = new Request();
+
 curl.post("https://postman-echo.com/post", {
   hi: "111"
 }, {

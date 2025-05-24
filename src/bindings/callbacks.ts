@@ -18,7 +18,7 @@ export function createWriteCallback(
   callback: (data: Buffer) => number
 ): { callback: any, id: number } {
   const id = saveReference(callback);
-  const writeCallback = function(ptr: any, size: number, nmemb: number, userdata: any) {
+  const writeCallback = function (ptr: any, size: number, nmemb: number, userdata: any) {
     try {
       const totalSize = size * nmemb;
       if (totalSize === 0) return 0;
@@ -41,7 +41,7 @@ export function createHeaderCallback(
   callback: (data: Buffer) => number
 ): { callback: any, id: number } {
   const id = saveReference(callback);
-  const headerCallback = function(ptr: any, size: number, nmemb: number, userdata: any) {
+  const headerCallback = function (ptr: any, size: number, nmemb: number, userdata: any) {
     try {
       const totalSize = size * nmemb;
       if (totalSize === 0) return 0;
@@ -64,7 +64,7 @@ export function createProgressCallback(
   callback: (dlTotal: number, dlNow: number, ulTotal: number, ulNow: number) => number
 ): { callback: any, id: number } {
   const id = saveReference(callback);
-  const progressCallback = function(clientp: any, dltotal: number, dlnow: number, ultotal: number, ulnow: number) {
+  const progressCallback = function (clientp: any, dltotal: number, dlnow: number, ultotal: number, ulnow: number) {
     try {
       const jsCallback = getReference(id) as (dlTotal: number, dlNow: number, ulTotal: number, ulNow: number) => number;
       return jsCallback(dltotal, dlnow, ultotal, ulnow);
@@ -80,6 +80,7 @@ export function createProgressCallback(
 }
 
 export function releaseCallback(callbackId: number): void {
+  koffi.unregister(REGISTERED_CALLBACKS.get(callbackId));
   releaseReference(callbackId);
   REGISTERED_CALLBACKS.delete(callbackId);
 }

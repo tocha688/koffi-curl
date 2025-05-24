@@ -329,7 +329,12 @@ export class Curl {
       throw new Error(`获取信息 ${infoName} 失败: ${err.message}`);
     }
   }
-  
+
+  setHeaders( headers: { [key: string]: string }){
+    const headerList = Object.entries(headers).map(([key, value]) => `${key}: ${value}`);
+    this.setopt(constants.CURLOPT.HTTPHEADER, headerList);
+  }
+
   upkeep(){
     libcurl.curl_easy_upkeep(this.handle)
   }
