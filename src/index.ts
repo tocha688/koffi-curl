@@ -7,16 +7,11 @@ export {
   constants
 };
 
-// 导出版本信息
-export const version = '0.1.0';
-
 // 导出异步支持
-export * from './core/async';
 export * from './core/websocket';
 
 // 导出高级 API
 export * as req from './core/request';
-export * from './core/browser';
 
 // 导出绑定相关内容，但排除已经导出的
 export { constants as bindingConstants } from './bindings';

@@ -1,8 +1,4 @@
-import { constants, req, logger, LogLevel } from "../src";
-import { libcurlVersion } from "../src/bindings";
-
-// 只在测试时启用调试模式
-// logger.setLevel(LogLevel.DEBUG);
+import { req, libcurlVersion } from "../src";
 
 console.log(libcurlVersion());
 
