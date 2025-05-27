@@ -25,7 +25,8 @@ const customHttpClient = async (config: CurlAxiosConfig): Promise<AxiosResponse>
         status: response.status,
         statusText: response.statusText,
         headers: response.headers,
-        config: config as any
+        config: config as any,
+        request: config,
     };
 };
 
