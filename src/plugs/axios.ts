@@ -59,8 +59,12 @@ export class CurlAxios extends Axios {
         this.interceptors.response.use(
             (response) => {
                 // 从响应中提取 Set-Cookie 头并存储到 cookieJar
-                const setCookieHeader = response.headers["set-cookie"];
+                let setCookieHeader = response.headers["set-cookie"];
                 if (setCookieHeader) {
+                    if (!Array.isArray(setCookieHeader)) {
+                        //@ts-ignore
+                        setCookieHeader = [setCookieHeader];
+                    }
                     setCookieHeader.forEach((cookie: string) => {
                         this.jar && this.jar.setCookieSync(cookie, response.request.url || "");
                     });

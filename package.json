@@ -1,6 +1,6 @@
 {
   "name": "koffi-curl",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Node.js libcurl bindings using koffi with browser fingerprint capabilities",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -41,7 +41,8 @@
     "browser-fingerprint",
     "http-client",
     "web-scraping",
-    "nodejs"
+    "ja3",
+    "tls"
   ],
   "author": {
     "name": "tocha688",
