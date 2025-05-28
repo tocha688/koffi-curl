@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/node/v/koffi-curl.svg)](https://nodejs.org/)
 
-Node.js libcurl bindings using koffi with browser fingerprint capabilities.
+Node.js libcurl bindings using koffi with browser TLS/JA3 fingerprint capabilities.
 
 **Inspired by** [curl_cffi](https://github.com/lexiforest/curl_cffi)  
 **Uses** [curl-impersonate](https://github.com/lexiforest/curl-impersonate)
@@ -12,7 +12,7 @@ Node.js libcurl bindings using koffi with browser fingerprint capabilities.
 ## ✨ Features
 
 - 🚀 **High Performance**: Direct libcurl bindings via koffi
-- 🕵️ **Browser Fingerprinting**: Simulate Chrome, Firefox, Safari, Edge
+- 🕵️ **Browser TLS/JA3 Fingerprint**: Simulate Chrome, Firefox, Safari, Edge
 - 🔄 **HTTP/2 & HTTP/3**: Full modern protocol support
 - 🍪 **Cookie Management**: Automatic cookie handling with tough-cookie
 - 🔒 **SSL/TLS**: Advanced SSL configuration and verification
