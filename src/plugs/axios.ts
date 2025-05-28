@@ -24,7 +24,7 @@ const customHttpClient = async (config: CurlAxiosConfig): Promise<AxiosResponse>
         data: response.data,
         status: response.status,
         statusText: response.statusText,
-        headers: response.headers,
+        headers: response.headers as any,
         config: config as any,
         request: config,
     };
@@ -39,20 +39,15 @@ export class CurlAxios extends Axios {
         if (!config) return;
         if (config.cookieEnable) {
             this.jar = new CookieJar();
-            //@ts-ignore
-            config.jar=this.jar;
         }
-        // this.initHook();
+        this.initHook();
     }
     private initHook() {
         this.interceptors.request.use(async (config) => {
             // 从 cookieJar 中获取 Cookie
             if (this.jar) {
-                const cookies = await this.jar.getCookiesSync(config.url || "");
-                if (cookies && cookies.length > 0) {
-                    const mcookie = cookies.map((cookie) => cookie.cookieString()).join("; ");
-                    config.headers["cookie"] = mergeCookieStr(mcookie, config.headers["cookie"] || "");
-                }
+                //@ts-ignore
+                config.jar= this.jar;
             }
             return config;
         });
@@ -60,17 +55,6 @@ export class CurlAxios extends Axios {
         // 添加响应拦截器
         this.interceptors.response.use(
             (response) => {
-                // 从响应中提取 Set-Cookie 头并存储到 cookieJar
-                let setCookieHeader = response.headers["set-cookie"];
-                if (setCookieHeader) {
-                    if (!Array.isArray(setCookieHeader)) {
-                        //@ts-ignore
-                        setCookieHeader = [setCookieHeader];
-                    }
-                    setCookieHeader.forEach((cookie: string) => {
-                        this.jar && this.jar.setCookieSync(cookie, response.request.url || "");
-                    });
-                }
                 return response;
             },
             (error) => {
