@@ -249,56 +249,6 @@ async function executeRequest(curl: Curl): Promise<Response> {
   });
 }
 
-// async function request(options: RequestOptions): Promise<Response> {
-//   const opts = { ...defaultOptions, ...options };
-//   const curl = new Curl()
-
-//   // 构建完整 URL
-//   const url = buildUrl(opts.url, opts.params);
-//   curl.setopt(constants.CURLOPT.URL, url);
-
-//   // 设置 HTTP 方法
-//   setHttpMethod(curl, opts.method || 'GET', opts.data);
-
-//   // 设置请求头
-//   if (opts.headers) {
-//     curl.setHeaders(opts.headers);
-//   }
-
-//   // 设置超时
-//   if (opts.timeout) {
-//     curl.setopt(constants.CURLOPT.TIMEOUT, Math.floor(opts.timeout / 1000));
-//   }
-
-//   // 设置重定向
-//   curl.setopt(constants.CURLOPT.FOLLOWLOCATION, opts.followRedirects ? 1 : 0);
-//   if (opts.maxRedirects) {
-//     curl.setopt(constants.CURLOPT.MAXREDIRS, opts.maxRedirects);
-//   }
-
-//   // 设置代理
-//   if (opts.proxy) {
-//     curl.setopt(constants.CURLOPT.PROXY, opts.proxy);
-//   }
-
-//   // 设置 User-Agent
-//   if (opts.userAgent) {
-//     curl.setopt(constants.CURLOPT.USERAGENT, opts.userAgent);
-//   }
-
-//   // 设置浏览器指纹模拟
-//   if (opts.impersonate) {
-//     curl.impersonate(opts.impersonate, true);
-//   }
-
-//   // 设置 SSL 验证
-//   SSLVerification(curl, opts.verifySsl, !!opts.proxy);
-
-//   // 执行请求
-//   return executeRequest(curl).finally(() => {
-//     curl.close();
-//   });
-// }
 
 async function request(options: RequestOptions) {
   const opts = { ...defaultOptions, ...options };
@@ -385,14 +335,13 @@ async function request(options: RequestOptions) {
   } else {
     const certPath = getCertPath();
     if (certPath) {
-      // curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 2); // 验证主机名
-      // curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 1); // 验证对等证书
-      // 设置SSL选项以提高兼容性
-      // curl.setopt(constants.CURLOPT.SSLVERSION, constants.CURL_SSLVERSION.DEFAULT);
+      curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 1);
+      curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 2);
       // 直接传递证书文件路径，而不是读取内容
       curl.setopt(constants.CURLOPT.CAINFO, certPath);
       curl.setopt(constants.CURLOPT.PROXY_CAINFO, certPath);
-      
+      // 设置SSL选项以提高兼容性
+      curl.setopt(constants.CURLOPT.SSLVERSION, constants.CURL_SSLVERSION.DEFAULT);
     }
   }
   if (opts.referer) {
