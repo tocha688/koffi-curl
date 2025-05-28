@@ -124,7 +124,7 @@ export class Curl {
         if (slist) {
           const result = libcurl.curl_easy_setopt_pointer(this.handle, option, slist);
           if (result !== 0) {
-            throw new Error(`\u8BBE\u7F6E\u94FE\u8868\u9009\u9879\u5931\u8D25: ${libcurl.curl_easy_strerror(result)}`);
+            throw new Error(`设置链表失败: ${libcurl.curl_easy_strerror(result)}`);
           }
           this.slists[id] = slist;
         }
