@@ -190,6 +190,7 @@ async function executeRequest(curl: Curl): Promise<Response> {
         // 对于可能失败的字符串信息，使用默认值
         let finalUrl = '';
         let redirectCount = 0;
+        let cookie;
 
         try {
           finalUrl = curl.getinfo(constants.CURLINFO.EFFECTIVE_URL) || '';
@@ -203,6 +204,12 @@ async function executeRequest(curl: Curl): Promise<Response> {
         } catch (e) {
           debug('无法获取重定向次数，使用0');
           redirectCount = 0;
+        }
+
+        try {
+          cookie = curl.getinfo(constants.CURLINFO.COOKIELIST) || 0;
+        } catch (e) {
+          debug('无法获取cookie');
         }
 
         // 合并Buffer数组
@@ -285,8 +292,7 @@ async function request(options: RequestOptions) {
     const cookieJar = opts.jar;
     const cookies = cookieJar.getCookiesSync(url);
     if (cookies.length > 0) {
-      const cookieString = cookies.map(cookie => `${cookie.key}=${cookie.value}`).join('; ');
-      curl.setopt(constants.CURLOPT.COOKIELIST, cookieString);
+      curl.setopt(constants.CURLOPT.COOKIELIST, cookies.map(cookie => `${cookie.key}=${cookie.value}`));
     }
   }
   //auth
@@ -345,14 +351,21 @@ async function request(options: RequestOptions) {
   // curl.setopt(constants.CURLOPT.HTTP_VERSION, constants.CURL_HTTP_VERSION.V1_0);
   curl.setopt(constants.CURLOPT.MAX_RECV_SPEED_LARGE, 0);
   //------开始请求------
-  return executeRequest(curl).then(resp=>{
-    if(options.jar && resp.headers['set-cookie']) {
-      //合并cookie
-      let setCookieHeader = Array.isArray(resp.headers['set-cookie']) ? resp.headers['set-cookie'] : [resp.headers['set-cookie']];
-      if (setCookieHeader && setCookieHeader.length > 0) {
-          setCookieHeader.forEach((cookie: string) => {
-            options.jar && options.jar.setCookieSync(cookie, url || "");
-          });
+  return executeRequest(curl).then(resp => {
+    if (options.jar) {
+      if (resp.headers['set-cookie']) {
+        let setCookieHeader = Array.isArray(resp.headers['set-cookie']) 
+          ? resp.headers['set-cookie'] 
+          : [resp.headers['set-cookie']];
+        
+        setCookieHeader.forEach((cookie: string) => {
+          try {
+            debug(`从响应头设置 cookie: ${cookie}`);
+            options.jar && options.jar.setCookieSync(cookie, resp.url || url);
+          } catch (e) {
+            debug('从响应头设置 cookie 失败:', e);
+          }
+        });
       }
     }
     return resp;
