@@ -345,7 +345,18 @@ async function request(options: RequestOptions) {
   // curl.setopt(constants.CURLOPT.HTTP_VERSION, constants.CURL_HTTP_VERSION.V1_0);
   curl.setopt(constants.CURLOPT.MAX_RECV_SPEED_LARGE, 0);
   //------开始请求------
-  return executeRequest(curl).finally(() => {
+  return executeRequest(curl).then(resp=>{
+    if(options.jar && resp.headers['set-cookie']) {
+      //合并cookie
+      let setCookieHeader = Array.isArray(resp.headers['set-cookie']) ? resp.headers['set-cookie'] : [resp.headers['set-cookie']];
+      if (setCookieHeader && setCookieHeader.length > 0) {
+          setCookieHeader.forEach((cookie: string) => {
+            options.jar && options.jar.setCookieSync(cookie, url || "");
+          });
+      }
+    }
+    return resp;
+  }).finally(() => {
     curl.close();
   })
 }
