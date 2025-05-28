@@ -79,159 +79,192 @@ export class Curl {
    */
   setopt(option: number, value: any): void {
     if (!this.handle) throw new Error('CURL 句柄已关闭');
-
     try {
-      // 处理不同类型选项
-      switch (option) {
-        // 字符串选项
-        case constants.CURLOPT.URL:
-        case constants.CURLOPT.PROXY:
-        case constants.CURLOPT.USERAGENT:
-        case constants.CURLOPT.REFERER:
-        case constants.CURLOPT.COOKIE:
-        case constants.CURLOPT.COOKIEFILE:
-        case constants.CURLOPT.COOKIEJAR:
-        case constants.CURLOPT.CUSTOMREQUEST:
-        case constants.CURLOPT.CAINFO: {
-          const strValue = String(value);
-          const result = libcurl.curl_easy_setopt_string(this.handle, option, strValue);
-          if (result !== 0) {
-            throw new Error(`设置字符串选项失败: ${libcurl.curl_easy_strerror(result)}`);
-          }
-          break;
+      if (typeof value === 'number') {
+        const numValue = Number(value);
+        const result = libcurl.curl_easy_setopt_long(this.handle, option, numValue);
+        if (result !== 0) {
+          throw new Error(`设置数值选项失败: ${libcurl.curl_easy_strerror(result)}`);
         }
-
-        // 整数选项
-        case constants.CURLOPT.FOLLOWLOCATION:
-        case constants.CURLOPT.VERBOSE:
-        case constants.CURLOPT.HEADER:
-        case constants.CURLOPT.NOPROGRESS:
-        case constants.CURLOPT.TIMEOUT:
-        case constants.CURLOPT.CONNECTTIMEOUT:
-        case constants.CURLOPT.SSL_VERIFYPEER:
-        case constants.CURLOPT.SSL_VERIFYHOST:
-        case constants.CURLOPT.HTTP_VERSION:
-        case constants.CURLOPT.PORT:
-        case constants.CURLOPT.MAXREDIRS:
-        case constants.CURLOPT.POSTFIELDSIZE:
-        case constants.CURLOPT.POST:
-        case constants.CURLOPT.NOBODY:
-        case constants.CURLOPT.SSLVERSION: {
-          const numValue = Number(value);
-          const result = libcurl.curl_easy_setopt_long(this.handle, option, numValue);
-          if (result !== 0) {
-            throw new Error(`设置数值选项失败: ${libcurl.curl_easy_strerror(result)}`);
-          }
-          break;
+      } else if (typeof value === 'string') {
+        const strValue = String(value);
+        const result = libcurl.curl_easy_setopt_string(this.handle, option, strValue);
+        if (result !== 0) {
+          throw new Error(`设置字符串选项失败: ${libcurl.curl_easy_strerror(result)}`);
         }
-
-        // 回调选项
-        case constants.CURLOPT.WRITEFUNCTION:
-        case constants.CURLOPT.HEADERFUNCTION: {
-          // 清理已存在的回调
-          const callbackType = option === constants.CURLOPT.WRITEFUNCTION ? 'write' : 'header';
-          if (this.callbackRefs[callbackType]) {
-            callbacks.releaseCallback(this.callbackRefs[callbackType]);
-            delete this.callbackRefs[callbackType];
-          }
-
-          // 创建新回调
-          const cb = callbackType === 'write'
-            ? callbacks.createWriteCallback(value)
-            : callbacks.createHeaderCallback(value);
-
-          // 使用 curl_easy_setopt_callback 传递回调函数指针
-          let result = libcurl.curl_easy_setopt_callback(this.handle, option, cb.callback);
-
-          if (result !== 0) {
-            throw new Error(`设置回调选项失败: ${libcurl.curl_easy_strerror(result)}`);
-          }
-          this.callbackRefs[callbackType] = cb.id;
-          break;
+      } else if (typeof value === 'boolean') {
+        // 处理布尔值选项
+        const numValue = value ? 1 : 0;
+        const result = libcurl.curl_easy_setopt_long(this.handle, option, numValue);
+        if (result !== 0) {
+          throw new Error(`设置布尔选项失败: ${libcurl.curl_easy_strerror(result)}`);
         }
-
-        case constants.CURLOPT.XFERINFOFUNCTION: {
-          if (this.callbackRefs.progress) {
-            callbacks.releaseCallback(this.callbackRefs.progress);
-            delete this.callbackRefs.progress;
-          }
-
-          const cb = callbacks.createProgressCallback(value);
-          const result = libcurl.curl_easy_setopt_pointer(this.handle, option, cb.callback);
-          if (result !== 0) {
-            throw new Error(`设置进度回调失败: ${libcurl.curl_easy_strerror(result)}`);
-          }
-          this.callbackRefs.progress = cb.id;
-
-          // 启用进度回调
-          libcurl.curl_easy_setopt_long(this.handle, constants.CURLOPT.NOPROGRESS, 0);
-          break;
+      } else if (typeof value === 'function') {
+        //
+        const callbackType = option
+        if (this.callbackRefs[callbackType]) {
+          callbacks.releaseCallback(this.callbackRefs[callbackType]);
+          delete this.callbackRefs[callbackType];
         }
-
-        // 链表选项 (例如 HTTP 头)
-        case constants.CURLOPT.HTTPHEADER: {
-          // 确保值是数组
-          if (!Array.isArray(value)) {
-            throw new TypeError('HTTPHEADER 选项必须是字符串数组');
-          }
-
-          let slist = null;
-          for (const header of value) {
-            const headerStr = header.toString();
-            slist = libcurl.curl_slist_append(slist, headerStr);
-          }
-
-          // 保存链表引用以便后续释放
-          const id = this.nextSlistId++;
-          if (slist) {
-            const result = libcurl.curl_easy_setopt_pointer(this.handle, option, slist);
-            if (result !== 0) {
-              throw new Error(`设置链表选项失败: ${libcurl.curl_easy_strerror(result)}`);
-            }
-            this.slists[id] = slist;
-          } else {
-            throw new Error('无法创建 HTTP 头链表');
-          }
-          break;
+        const cb = callbacks.createBufferCallback(value);
+        // 使用 curl_easy_setopt_callback 传递回调函数指针
+        let result = libcurl.curl_easy_setopt_callback(this.handle, option, cb.callback);
+        if (result !== 0) {
+          throw new Error(`设置回调选项失败: ${libcurl.curl_easy_strerror(result)}`);
         }
-
-        // 二进制数据选项
-        case constants.CURLOPT.POSTFIELDS: {
-          const postData = Buffer.isBuffer(value) ? value : Buffer.from(value.toString());
-          const dataPtr = memory.bufferToPointer(postData);
-          const result = libcurl.curl_easy_setopt_pointer(this.handle, option, dataPtr);
-          if (result !== 0) {
-            throw new Error(`设置POST数据失败: ${libcurl.curl_easy_strerror(result)}`);
-          }
-
-          // 设置 POST 数据大小
-          const dataSize = postData.length;
-          this.setopt(constants.CURLOPT.POSTFIELDSIZE, dataSize);
-          break;
-        }
-
-        // 默认情况，尝试作为指针传递
-        default: {
-          try {
-            // 首先尝试作为整数
-            const result = libcurl.curl_easy_setopt_long(this.handle, option, Number(value));
-            if (result !== 0) {
-              // 如果失败，尝试作为字符串
-              const strResult = libcurl.curl_easy_setopt_string(this.handle, option, String(value));
-              if (strResult !== 0) {
-                throw new Error(`设置选项失败: ${libcurl.curl_easy_strerror(strResult)}`);
-              }
-            }
-          } catch (err) {
-            // 最后尝试作为指针
-            const ptrResult = libcurl.curl_easy_setopt_pointer(this.handle, option, value);
-            if (ptrResult !== 0) {
-              throw new Error(`设置选项失败: ${libcurl.curl_easy_strerror(ptrResult)}`);
-            }
-          }
-          break;
-        }
+        this.callbackRefs[callbackType] = cb.id;
       }
+      //   // 处理不同类型选项
+      //   switch (option) {
+      //     // 字符串选项
+      //     case constants.CURLOPT.URL:
+      //     case constants.CURLOPT.PROXY:
+      //     case constants.CURLOPT.USERAGENT:
+      //     case constants.CURLOPT.REFERER:
+      //     case constants.CURLOPT.COOKIE:
+      //     case constants.CURLOPT.COOKIEFILE:
+      //     case constants.CURLOPT.COOKIEJAR:
+      //     case constants.CURLOPT.CUSTOMREQUEST:
+      //     case constants.CURLOPT.CAINFO: {
+      //       const strValue = String(value);
+      //       const result = libcurl.curl_easy_setopt_string(this.handle, option, strValue);
+      //       if (result !== 0) {
+      //         throw new Error(`设置字符串选项失败: ${libcurl.curl_easy_strerror(result)}`);
+      //       }
+      //       break;
+      //     }
+
+      //     // 整数选项
+      //     case constants.CURLOPT.FOLLOWLOCATION:
+      //     case constants.CURLOPT.VERBOSE:
+      //     case constants.CURLOPT.HEADER:
+      //     case constants.CURLOPT.NOPROGRESS:
+      //     case constants.CURLOPT.TIMEOUT:
+      //     case constants.CURLOPT.CONNECTTIMEOUT:
+      //     case constants.CURLOPT.SSL_VERIFYPEER:
+      //     case constants.CURLOPT.SSL_VERIFYHOST:
+      //     case constants.CURLOPT.HTTP_VERSION:
+      //     case constants.CURLOPT.PORT:
+      //     case constants.CURLOPT.MAXREDIRS:
+      //     case constants.CURLOPT.POSTFIELDSIZE:
+      //     case constants.CURLOPT.POST:
+      //     case constants.CURLOPT.NOBODY:
+      //     case constants.CURLOPT.SSLVERSION: {
+      //       const numValue = Number(value);
+      //       const result = libcurl.curl_easy_setopt_long(this.handle, option, numValue);
+      //       if (result !== 0) {
+      //         throw new Error(`设置数值选项失败: ${libcurl.curl_easy_strerror(result)}`);
+      //       }
+      //       break;
+      //     }
+
+      //     // 回调选项
+      //     case constants.CURLOPT.WRITEFUNCTION:
+      //     case constants.CURLOPT.HEADERFUNCTION: {
+      //       // 清理已存在的回调
+      //       const callbackType = option === constants.CURLOPT.WRITEFUNCTION ? 'write' : 'header';
+      //       if (this.callbackRefs[callbackType]) {
+      //         callbacks.releaseCallback(this.callbackRefs[callbackType]);
+      //         delete this.callbackRefs[callbackType];
+      //       }
+
+      //       // 创建新回调
+      //       const cb = callbackType === 'write'
+      //         ? callbacks.createWriteCallback(value)
+      //         : callbacks.createHeaderCallback(value);
+
+      //       // 使用 curl_easy_setopt_callback 传递回调函数指针
+      //       let result = libcurl.curl_easy_setopt_callback(this.handle, option, cb.callback);
+
+      //       if (result !== 0) {
+      //         throw new Error(`设置回调选项失败: ${libcurl.curl_easy_strerror(result)}`);
+      //       }
+      //       this.callbackRefs[callbackType] = cb.id;
+      //       break;
+      //     }
+
+      //     case constants.CURLOPT.XFERINFOFUNCTION: {
+      //       if (this.callbackRefs.progress) {
+      //         callbacks.releaseCallback(this.callbackRefs.progress);
+      //         delete this.callbackRefs.progress;
+      //       }
+
+      //       const cb = callbacks.createProgressCallback(value);
+      //       const result = libcurl.curl_easy_setopt_pointer(this.handle, option, cb.callback);
+      //       if (result !== 0) {
+      //         throw new Error(`设置进度回调失败: ${libcurl.curl_easy_strerror(result)}`);
+      //       }
+      //       this.callbackRefs.progress = cb.id;
+
+      //       // 启用进度回调
+      //       libcurl.curl_easy_setopt_long(this.handle, constants.CURLOPT.NOPROGRESS, 0);
+      //       break;
+      //     }
+
+      //     // 链表选项 (例如 HTTP 头)
+      //     case constants.CURLOPT.HTTPHEADER: {
+      //       // 确保值是数组
+      //       if (!Array.isArray(value)) {
+      //         throw new TypeError('HTTPHEADER 选项必须是字符串数组');
+      //       }
+
+      //       let slist = null;
+      //       for (const header of value) {
+      //         const headerStr = header.toString();
+      //         slist = libcurl.curl_slist_append(slist, headerStr);
+      //       }
+
+      //       // 保存链表引用以便后续释放
+      //       const id = this.nextSlistId++;
+      //       if (slist) {
+      //         const result = libcurl.curl_easy_setopt_pointer(this.handle, option, slist);
+      //         if (result !== 0) {
+      //           throw new Error(`设置链表选项失败: ${libcurl.curl_easy_strerror(result)}`);
+      //         }
+      //         this.slists[id] = slist;
+      //       } else {
+      //         throw new Error('无法创建 HTTP 头链表');
+      //       }
+      //       break;
+      //     }
+
+      //     // 二进制数据选项
+      //     case constants.CURLOPT.POSTFIELDS: {
+      //       const postData = Buffer.isBuffer(value) ? value : Buffer.from(value.toString());
+      //       const dataPtr = memory.bufferToPointer(postData);
+      //       const result = libcurl.curl_easy_setopt_pointer(this.handle, option, dataPtr);
+      //       if (result !== 0) {
+      //         throw new Error(`设置POST数据失败: ${libcurl.curl_easy_strerror(result)}`);
+      //       }
+
+      //       // 设置 POST 数据大小
+      //       const dataSize = postData.length;
+      //       this.setopt(constants.CURLOPT.POSTFIELDSIZE, dataSize);
+      //       break;
+      //     }
+
+      //     // 默认情况，尝试作为指针传递
+      //     default: {
+      //       try {
+      //         // 首先尝试作为整数
+      //         const result = libcurl.curl_easy_setopt_long(this.handle, option, Number(value));
+      //         if (result !== 0) {
+      //           // 如果失败，尝试作为字符串
+      //           const strResult = libcurl.curl_easy_setopt_string(this.handle, option, String(value));
+      //           if (strResult !== 0) {
+      //             throw new Error(`设置选项失败: ${libcurl.curl_easy_strerror(strResult)}`);
+      //           }
+      //         }
+      //       } catch (err) {
+      //         // 最后尝试作为指针
+      //         const ptrResult = libcurl.curl_easy_setopt_pointer(this.handle, option, value);
+      //         if (ptrResult !== 0) {
+      //           throw new Error(`设置选项失败: ${libcurl.curl_easy_strerror(ptrResult)}`);
+      //         }
+      //       }
+      //       break;
+      //     }
+      //   }
     } catch (err: any) {
       console.error(err);
       // 捕获并包装错误，提供更多上下文
@@ -330,13 +363,13 @@ export class Curl {
     }
   }
 
-  setHeaders( headers: { [key: string]: string }){
+  setHeaders(headers: { [key: string]: string }) {
     const headerList = Object.entries(headers).map(([key, value]) => `${key}: ${value}`);
-    if(headerList.length === 0) return;
+    if (headerList.length === 0) return;
     this.setopt(constants.CURLOPT.HTTPHEADER, headerList);
   }
 
-  upkeep(){
+  upkeep() {
     libcurl.curl_easy_upkeep(this.handle)
   }
 

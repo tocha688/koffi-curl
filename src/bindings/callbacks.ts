@@ -14,7 +14,7 @@ import { debug } from '../utils/logger';
 const REGISTERED_CALLBACKS = new Map<number, any>();
 let nextCallbackId = 1;
 
-export function createWriteCallback(
+export function createBufferCallback(
   callback: (data: Buffer) => number
 ): { callback: any, id: number } {
   const id = saveReference(callback);
@@ -37,28 +37,6 @@ export function createWriteCallback(
   return { callback: functionPointer, id: callbackId }; // 返回注册后的指针
 }
 
-export function createHeaderCallback(
-  callback: (data: Buffer) => number
-): { callback: any, id: number } {
-  const id = saveReference(callback);
-  const headerCallback = function (ptr: any, size: number, nmemb: number, userdata: any) {
-    try {
-      const totalSize = size * nmemb;
-      if (totalSize === 0) return 0;
-      const data = pointerToBuffer(ptr, totalSize);
-      const jsCallback = getReference(id) as (data: Buffer) => number;
-      return jsCallback(data);
-    } catch (err) {
-      debug('Header callback 错误:', err);
-      return 0;
-    }
-  };
-  const callbackId = nextCallbackId++;
-  // 关键：确保 koffi.register 被调用，并存储/返回其结果
-  const functionPointer = koffi.register(headerCallback, koffi.pointer(headerCallbackProto));
-  REGISTERED_CALLBACKS.set(callbackId, functionPointer); // 存储注册后的指针
-  return { callback: functionPointer, id: callbackId }; // 返回注册后的指针
-}
 
 export function createProgressCallback(
   callback: (dlTotal: number, dlNow: number, ulTotal: number, ulNow: number) => number

@@ -5,7 +5,7 @@ logger.setLevel(LogLevel.DEBUG)
 const axios = new CurlAxios({
     cookieEnable: true,
     impersonate: "chrome136",
-    proxy:"http://127.0.0.1:10808"
+    // proxy:"http://127.0.0.1:10808"
 })
 
 axios.get("https://tls.peet.ws/api/all", {

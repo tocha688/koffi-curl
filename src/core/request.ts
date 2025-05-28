@@ -7,6 +7,9 @@ import os from "os"
 import path from "path"
 import fs from "fs"
 import { getLibHome } from '../bindings/library';
+import zlib from 'zlib';
+import { config } from 'koffi';
+import { CookieJar } from 'tough-cookie';
 
 /**
  * HTTP 请求选项接口
@@ -21,9 +24,16 @@ interface RequestOptions {
   followRedirects?: boolean;
   maxRedirects?: number;
   proxy?: string;
+  referer?: string;
+  acceptEncoding?: string;
   userAgent?: string;
   impersonate?: CURL_IMPERSONATE;
   verifySsl?: boolean;
+  jar?: CookieJar;
+  auth?: {
+    username: string;
+    password: string;
+  }
 }
 
 /**
@@ -36,6 +46,7 @@ interface Response {
   data: string;
   url: string;
   redirectCount: number;
+  buffer: Buffer;
 }
 
 const defaultOptions: Partial<RequestOptions> = {
@@ -100,72 +111,41 @@ function setRequestData(curl: Curl, data: any): void {
   curl.setopt(constants.CURLOPT.POSTFIELDS, postData);
   curl.setopt(constants.CURLOPT.HTTPHEADER, [`Content-Type: ${contentType}`]);
 }
-function SSLVerification(curl: Curl, verifySsl?: boolean,isProxy?:boolean): void {
-  if (verifySsl === false) {
-    // 显式禁用SSL验证
-    curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
-    curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
-    return;
-  }
-
-  try {
-    // 启用SSL验证
-    curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 1);
-    curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 2);
-
-
-    let caPath = null;
-
-    // 首先尝试使用项目内置的CA证书
-    const projectCaPath = path.join(getLibHome(), 'cacert.pem');
-    if (fs.existsSync(projectCaPath)) {
-      caPath = projectCaPath;
-      debug('使用项目CA证书包');
-    } else if (os.platform() === 'win32') {
-      // Windows - libcurl-impersonate应该已经包含证书
-      debug('Windows系统，使用libcurl-impersonate内置证书');
-      // 不设置CAINFO，让libcurl使用默认配置
-    } else if (os.platform() === 'darwin') {
-      // macOS
-      const macPaths = [
-        '/usr/local/etc/openssl/cert.pem',
-        '/etc/ssl/cert.pem',
-        '/usr/local/etc/openssl@1.1/cert.pem'
-      ];
-      caPath = macPaths.find(p => fs.existsSync(p));
-    } else {
-      // Linux
-      const linuxPaths = [
-        '/etc/ssl/certs/ca-certificates.crt',
-        '/etc/pki/tls/certs/ca-bundle.crt',
-        '/usr/share/ssl/certs/ca-bundle.crt',
-        '/usr/local/share/certs/ca-root-nss.crt'
-      ];
-      caPath = linuxPaths.find(p => fs.existsSync(p));
-    }
-
-    if (caPath) {
-      debug(`设置CA证书路径: ${caPath}`);
-      curl.setopt(constants.CURLOPT.CAINFO, caPath);
-      // if(isProxy){
-      //   curl.setopt(constants.CURLOPT.PROXY_CAINFO, caPath);
-      // }
-    }
-
-    // 设置SSL选项以提高兼容性
-    curl.setopt(constants.CURLOPT.SSLVERSION, constants.CURL_SSLVERSION.DEFAULT);
-
-  } catch (error: any) {
-    warn('SSL配置警告:', error.message);
-    // 如果SSL配置失败，作为最后手段禁用验证
-    warn('降级为禁用SSL验证');
-    curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
-    curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
+function getCertPath(): string | undefined {
+  // 启用SSL验证
+  // curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 1);
+  // curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 2);
+  // 首先尝试使用项目内置的CA证书
+  const projectCaPath = path.join(getLibHome(), 'cacert.pem');
+  if (fs.existsSync(projectCaPath)) {
+    return projectCaPath;
+  } else if (os.platform() === 'win32') {
+    // Windows - libcurl-impersonate应该已经包含证书
+    debug('Windows系统，使用libcurl-impersonate内置证书');
+    // 不设置CAINFO，让libcurl使用默认配置
+  } else if (os.platform() === 'darwin') {
+    // macOS
+    const macPaths = [
+      '/usr/local/etc/openssl/cert.pem',
+      '/etc/ssl/cert.pem',
+      '/usr/local/etc/openssl@1.1/cert.pem'
+    ];
+    return macPaths.find(p => fs.existsSync(p));
+  } else {
+    // Linux
+    const linuxPaths = [
+      '/etc/ssl/certs/ca-certificates.crt',
+      '/etc/pki/tls/certs/ca-bundle.crt',
+      '/usr/share/ssl/certs/ca-bundle.crt',
+      '/usr/local/share/certs/ca-root-nss.crt'
+    ];
+    return linuxPaths.find(p => fs.existsSync(p));
   }
 }
 
-function parseHeaders(headerString: string): { [key: string]: string } {
+function parseHeaders(headerBuffer: Buffer): { [key: string]: string } {
   const headers: { [key: string]: string } = {};
+  const headerString = headerBuffer.toString('utf8');
   const lines = headerString.split('\r\n');
 
   for (const line of lines) {
@@ -178,6 +158,31 @@ function parseHeaders(headerString: string): { [key: string]: string } {
   }
 
   return headers;
+}
+
+function decompressResponse(responseBuffer: Buffer, headers: { [key: string]: string }): string {
+  const encoding = headers['content-encoding'];
+
+  if (!encoding) {
+    return responseBuffer.toString('utf8');
+  }
+
+  try {
+    switch (encoding.toLowerCase()) {
+      case 'gzip':
+        return zlib.gunzipSync(responseBuffer).toString('utf8');
+      case 'deflate':
+        return zlib.inflateSync(responseBuffer).toString('utf8');
+      case 'br':
+        return zlib.brotliDecompressSync(responseBuffer).toString('utf8');
+      default:
+        debug(`未知的编码格式: ${encoding}，使用原始数据`);
+        return responseBuffer.toString('utf8');
+    }
+  } catch (error: any) {
+    warn(`解压缩失败 (${encoding}): ${error.message}，使用原始数据`);
+    return responseBuffer.toString('utf8');
+  }
 }
 
 function getStatusText(status: number): string {
@@ -197,21 +202,20 @@ function getStatusText(status: number): string {
 
 async function executeRequest(curl: Curl): Promise<Response> {
   return new Promise((resolve, reject) => {
-    let responseData = '';
-    let responseHeaders = '';
+    const responseDataBuffers: Buffer[] = [];
+    const responseHeaderBuffers: Buffer[] = [];
 
     // 设置响应体回调
     curl.setopt(constants.CURLOPT.WRITEFUNCTION, (data: Buffer) => {
-      responseData += data.toString();
+      responseDataBuffers.push(data);
       return data.length;
     });
 
     // 设置响应头回调
     curl.setopt(constants.CURLOPT.HEADERFUNCTION, (data: Buffer) => {
-      responseHeaders += data.toString();
+      responseHeaderBuffers.push(data);
       return data.length;
     });
-
 
     // 在新的事件循环迭代中执行 curl 请求
     setImmediate(() => {
@@ -244,15 +248,23 @@ async function executeRequest(curl: Curl): Promise<Response> {
           redirectCount = 0;
         }
 
+        // 合并Buffer数组
+        const responseHeaderBuffer = Buffer.concat(responseHeaderBuffers);
+        const responseDataBuffer = Buffer.concat(responseDataBuffers);
+
         // 解析响应头
-        const headers = parseHeaders(responseHeaders);
+        const headers = parseHeaders(responseHeaderBuffer);
         const statusText = getStatusText(status);
+
+        // 根据响应头解压缩响应数据
+        const decompressedData = decompressResponse(responseDataBuffer, headers);
 
         resolve({
           status,
           statusText,
           headers,
-          data: responseData,
+          data: decompressedData,
+          buffer: responseDataBuffer,
           url: finalUrl,
           redirectCount
         });
@@ -263,55 +275,169 @@ async function executeRequest(curl: Curl): Promise<Response> {
   });
 }
 
-async function request(options: RequestOptions): Promise<Response> {
+// async function request(options: RequestOptions): Promise<Response> {
+//   const opts = { ...defaultOptions, ...options };
+//   const curl = new Curl()
+
+//   // 构建完整 URL
+//   const url = buildUrl(opts.url, opts.params);
+//   curl.setopt(constants.CURLOPT.URL, url);
+
+//   // 设置 HTTP 方法
+//   setHttpMethod(curl, opts.method || 'GET', opts.data);
+
+//   // 设置请求头
+//   if (opts.headers) {
+//     curl.setHeaders(opts.headers);
+//   }
+
+//   // 设置超时
+//   if (opts.timeout) {
+//     curl.setopt(constants.CURLOPT.TIMEOUT, Math.floor(opts.timeout / 1000));
+//   }
+
+//   // 设置重定向
+//   curl.setopt(constants.CURLOPT.FOLLOWLOCATION, opts.followRedirects ? 1 : 0);
+//   if (opts.maxRedirects) {
+//     curl.setopt(constants.CURLOPT.MAXREDIRS, opts.maxRedirects);
+//   }
+
+//   // 设置代理
+//   if (opts.proxy) {
+//     curl.setopt(constants.CURLOPT.PROXY, opts.proxy);
+//   }
+
+//   // 设置 User-Agent
+//   if (opts.userAgent) {
+//     curl.setopt(constants.CURLOPT.USERAGENT, opts.userAgent);
+//   }
+
+//   // 设置浏览器指纹模拟
+//   if (opts.impersonate) {
+//     curl.impersonate(opts.impersonate, true);
+//   }
+
+//   // 设置 SSL 验证
+//   SSLVerification(curl, opts.verifySsl, !!opts.proxy);
+
+//   // 执行请求
+//   return executeRequest(curl).finally(() => {
+//     curl.close();
+//   });
+// }
+
+async function request(options: RequestOptions) {
   const opts = { ...defaultOptions, ...options };
   const curl = new Curl()
-
-  // 构建完整 URL
+  //method
+  const method = opts.method || 'GET';
+  if (method == "POST") {
+    curl.setopt(constants.CURLOPT.POST, 1);
+  } else if (method !== "GET") {
+    curl.setopt(constants.CURLOPT.CUSTOMREQUEST, method)
+  }
+  if (method == "HEAD") {
+    curl.setopt(constants.CURLOPT.NOBODY, 1);
+  }
+  //url
   const url = buildUrl(opts.url, opts.params);
   curl.setopt(constants.CURLOPT.URL, url);
-
-  // 设置 HTTP 方法
-  setHttpMethod(curl, opts.method || 'GET', opts.data);
-
-  // 设置请求头
-  if (opts.headers) {
-    curl.setHeaders(opts.headers);
+  //data/body/json
+  let body: any = "";
+  let contentType = opts.headers?.['Content-Type'] || '';
+  if (opts.data && typeof opts.data === 'object') {
+    if (body instanceof URLSearchParams) {
+      body = opts.data.toString()
+      contentType = 'application/x-www-form-urlencoded';
+    } else {
+      body = JSON.stringify(opts.data)
+      contentType = 'application/json';
+    }
+  } else if (typeof opts.data === 'string') {
+    body = opts.data;
   }
-
-  // 设置超时
-  if (opts.timeout) {
-    curl.setopt(constants.CURLOPT.TIMEOUT, Math.floor(opts.timeout / 1000));
+  if (body || ["POST", "PUT", "PATCH"].includes(method)) {
+    curl.setopt(constants.CURLOPT.POSTFIELDS, body);
+    curl.setopt(constants.CURLOPT.POSTFIELDSIZE, body.length);
+    if (method == "GET") {
+      curl.setopt(constants.CURLOPT.CUSTOMREQUEST, method);
+    }
   }
-
-  // 设置重定向
+  //headers
+  const headers = opts.headers || {};
+  if (contentType) {
+    headers["Content-Type"] = contentType;
+  }
+  curl.setHeaders(headers);
+  //cookie
+  curl.setopt(constants.CURLOPT.COOKIEFILE, '');
+  curl.setopt(constants.CURLOPT.COOKIELIST, 'ALL');
+  //
+  if (opts.jar) {
+    const cookieJar = opts.jar;
+    const cookies = cookieJar.getCookiesSync(url);
+    if (cookies.length > 0) {
+      const cookieString = cookies.map(cookie => `${cookie.key}=${cookie.value}`).join('; ');
+      curl.setopt(constants.CURLOPT.COOKIELIST, cookieString);
+    }
+  }
+  //auth
+  if (opts.auth) {
+    const { username, password } = opts.auth;
+    curl.setopt(constants.CURLOPT.USERNAME, username);
+    curl.setopt(constants.CURLOPT.PASSWORD, password);
+  }
+  //timeout
+  curl.setopt(constants.CURLOPT.TIMEOUT_MS, (opts.timeout || 0) * 1000);
+  //follow redirects
   curl.setopt(constants.CURLOPT.FOLLOWLOCATION, opts.followRedirects ? 1 : 0);
-  if (opts.maxRedirects) {
-    curl.setopt(constants.CURLOPT.MAXREDIRS, opts.maxRedirects);
-  }
-
-  // 设置代理
+  curl.setopt(constants.CURLOPT.MAXREDIRS, opts.maxRedirects);
+  //代理
   if (opts.proxy) {
+    const proxy = new URL(opts.proxy);
     curl.setopt(constants.CURLOPT.PROXY, opts.proxy);
+    if (!proxy.protocol.startsWith('socks')) {
+      curl.setopt(constants.CURLOPT.HTTPPROXYTUNNEL, 1);
+    }
+    if (proxy.username && proxy.password) {
+      curl.setopt(constants.CURLOPT.PROXYUSERNAME, proxy.username);
+      curl.setopt(constants.CURLOPT.PROXYPASSWORD, proxy.password);
+    }
   }
-
-  // 设置 User-Agent
-  if (opts.userAgent) {
-    curl.setopt(constants.CURLOPT.USERAGENT, opts.userAgent);
+  // 显式禁用SSL验证
+  if (opts.verifySsl === false) {
+    curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
+    curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
+  } else {
+    const certPath = getCertPath();
+    if (certPath) {
+      //证书
+      curl.setopt(constants.CURLOPT.CAINFO, certPath);
+      curl.setopt(constants.CURLOPT.PROXY_CAINFO, certPath);
+      // 设置SSL选项以提高兼容性
+      // curl.setopt(constants.CURLOPT.SSLVERSION, constants.CURL_SSLVERSION.DEFAULT);
+    }
   }
-
-  // 设置浏览器指纹模拟
+  if (opts.referer) {
+    curl.setopt(constants.CURLOPT.REFERER, opts.referer);
+  }
+  if (opts.acceptEncoding) {
+    curl.setopt(constants.CURLOPT.ACCEPT_ENCODING, opts.acceptEncoding);
+  }
+  //指纹
   if (opts.impersonate) {
     curl.impersonate(opts.impersonate, true);
   }
-
-  // 设置 SSL 验证
-  SSLVerification(curl, opts.verifySsl,!!opts.proxy);
-
-  // 执行请求
+  //ja3
+  //akamai
+  //extra_fp
+  //http_version
+  // curl.setopt(constants.CURLOPT.HTTP_VERSION, constants.CURL_HTTP_VERSION.V1_0);
+  // curl.setopt(constants.CURLOPT.MAX_RECV_SPEED_LARGE, 0);
+  //------开始请求------
   return executeRequest(curl).finally(() => {
     curl.close();
-  });
+  })
 }
 
 async function get(url: string, options: Omit<RequestOptions, 'url' | 'method'> = {}): Promise<Response> {

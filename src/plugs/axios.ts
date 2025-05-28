@@ -19,7 +19,29 @@ export interface CurlAxiosConfig<D = any> extends AxiosRequestConfig {
 
 
 const customHttpClient = async (config: CurlAxiosConfig): Promise<AxiosResponse> => {
-    const response = await req.request(config as any);
+    //根据请求头编码内容
+    let postData: any;
+    if (config.headers && config.headers && config.data) {
+        const contentType = config.headers["Content-Type"]
+        if (contentType.includes("application/x-www-form-urlencoded") && config.data) {
+            const urlEncodedData = new URLSearchParams(config.data as Record<string, string>).toString();
+            postData = urlEncodedData;
+        } else if (contentType.includes("application/json") && config.data) {
+            postData = JSON.stringify(config.data);
+        } else if (contentType.includes("multipart/form-data") && config.data) {
+            const formData = new FormData();
+            for (const key in config.data) {
+                if (Object.prototype.hasOwnProperty.call(config.data, key)) {
+                    formData.append(key, config.data[key]);
+                }
+            }
+            postData = formData;
+        }
+    }
+    const response = await req.request({
+        ...config,
+        data: postData
+    } as any);
     return {
         data: response.data,
         status: response.status,
@@ -39,9 +61,10 @@ export class CurlAxios extends Axios {
         if (!config) return;
         if (config.cookieEnable) {
             this.jar = new CookieJar();
-
+            //@ts-ignore
+            config.jar=this.jar;
         }
-        this.initHook();
+        // this.initHook();
     }
     private initHook() {
         this.interceptors.request.use(async (config) => {
