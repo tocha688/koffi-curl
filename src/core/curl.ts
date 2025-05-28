@@ -113,6 +113,11 @@ export class Curl {
           throw new Error(`设置回调选项失败: ${libcurl.curl_easy_strerror(result)}`);
         }
         this.callbackRefs[callbackType] = cb.id;
+      } else {
+        const result = libcurl.curl_easy_setopt_pointer(this.handle, option, value);
+        if (result !== 0) {
+          throw new Error(`设置选项失败: ${libcurl.curl_easy_strerror(result)}`);
+        }
       }
       //   // 处理不同类型选项
       //   switch (option) {
