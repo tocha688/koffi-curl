@@ -113,6 +113,28 @@ export class Curl {
           throw new Error(`设置回调选项失败: ${libcurl.curl_easy_strerror(result)}`);
         }
         this.callbackRefs[callbackType] = cb.id;
+      } else if (Array.isArray(value)) {
+        // 处理数组类型（例如 HTTP 头）
+        let slist = null;
+        for (const header of value) {
+          const headerStr = header.toString();
+          slist = libcurl.curl_slist_append(slist, headerStr);
+        }
+        const id = this.nextSlistId++;
+        if (slist) {
+          const result = libcurl.curl_easy_setopt_pointer(this.handle, option, slist);
+          if (result !== 0) {
+            throw new Error(`\u8BBE\u7F6E\u94FE\u8868\u9009\u9879\u5931\u8D25: ${libcurl.curl_easy_strerror(result)}`);
+          }
+          this.slists[id] = slist;
+        }
+      } else if (value instanceof Buffer) {
+        // 处理 Buffer 类型
+        const dataPtr = memory.bufferToPointer(value);
+        const result = libcurl.curl_easy_setopt_pointer(this.handle, option, dataPtr);
+        if (result !== 0) {
+          throw new Error(`设置 Buffer 选项失败: ${libcurl.curl_easy_strerror(result)}`);
+        }
       } else {
         const result = libcurl.curl_easy_setopt_pointer(this.handle, option, value);
         if (result !== 0) {

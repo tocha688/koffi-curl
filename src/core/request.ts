@@ -54,7 +54,8 @@ const defaultOptions: Partial<RequestOptions> = {
   timeout: 30000,
   followRedirects: true,
   maxRedirects: 5,
-  verifySsl: true
+  verifySsl: true,
+  acceptEncoding: 'gzip, deflate, br',
 };
 
 function buildUrl(baseUrl: string, params?: { [key: string]: string | number }): string {
@@ -67,24 +68,6 @@ function buildUrl(baseUrl: string, params?: { [key: string]: string | number }):
 }
 
 
-function setRequestData(curl: Curl, data: any): void {
-  let postData: string;
-  let contentType = 'application/json';
-
-  if (typeof data === 'string') {
-    postData = data;
-    contentType = 'text/plain';
-  } else if (data instanceof URLSearchParams) {
-    postData = data.toString();
-    contentType = 'application/x-www-form-urlencoded';
-  } else {
-    postData = JSON.stringify(data);
-    contentType = 'application/json';
-  }
-
-  curl.setopt(constants.CURLOPT.POSTFIELDS, postData);
-  curl.setopt(constants.CURLOPT.HTTPHEADER, [`Content-Type: ${contentType}`]);
-}
 function getCertPath(): string | undefined {
   // 启用SSL验证
   // curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 1);
@@ -254,7 +237,7 @@ async function request(options: RequestOptions) {
   const opts = { ...defaultOptions, ...options };
   const curl = new Curl()
   //method
-  const method = opts.method || 'GET';
+  const method = opts.method?.toLocaleUpperCase() || 'GET';
   if (method == "POST") {
     curl.setopt(constants.CURLOPT.POST, 1);
   } else if (method !== "GET") {
@@ -281,8 +264,9 @@ async function request(options: RequestOptions) {
     body = opts.data;
   }
   if (body || ["POST", "PUT", "PATCH"].includes(method)) {
-    curl.setopt(constants.CURLOPT.POSTFIELDS, body);
-    curl.setopt(constants.CURLOPT.POSTFIELDSIZE, body.length);
+    const data = Buffer.from(body)
+    curl.setopt(constants.CURLOPT.POSTFIELDS, data);
+    curl.setopt(constants.CURLOPT.POSTFIELDSIZE, data.length);
     if (method == "GET") {
       curl.setopt(constants.CURLOPT.CUSTOMREQUEST, method);
     }
@@ -359,7 +343,7 @@ async function request(options: RequestOptions) {
   //extra_fp
   //http_version
   // curl.setopt(constants.CURLOPT.HTTP_VERSION, constants.CURL_HTTP_VERSION.V1_0);
-  // curl.setopt(constants.CURLOPT.MAX_RECV_SPEED_LARGE, 0);
+  curl.setopt(constants.CURLOPT.MAX_RECV_SPEED_LARGE, 0);
   //------开始请求------
   return executeRequest(curl).finally(() => {
     curl.close();
