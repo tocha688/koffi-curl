@@ -15,6 +15,7 @@ export interface CurlAxiosConfig<D = any> extends AxiosRequestConfig {
     impersonate?: CURL_IMPERSONATE;
     verifySsl?: boolean;
     cookieEnable?: boolean;
+    retryCount?:number;
 }
 
 

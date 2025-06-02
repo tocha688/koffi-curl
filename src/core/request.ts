@@ -63,6 +63,8 @@ interface RequestOptions {
   impersonate?: CURL_IMPERSONATE;
   verifySsl?: boolean;
   jar?: CookieJar;
+  //重试次数
+  retryCount?: number;
   auth?: {
     username: string;
     password: string;
@@ -289,186 +291,204 @@ async function request(options: RequestOptions): Promise<Response> {
   let currentUrl = buildUrl(opts.url, opts.params);
   let redirectCount = 0;
   const maxRedirects = opts.maxRedirects || 5;
-  let finalResponseUrl = currentUrl; // 记录最终响应的URL
+  const maxRetries = opts.retryCount || 0;
+  let finalResponseUrl = currentUrl;
 
-  while (redirectCount <= maxRedirects) {
-    const curl = new Curl();
-
+  // 外层重试循环
+  for (let retryAttempt = 0; retryAttempt <= maxRetries; retryAttempt++) {
+    redirectCount = 0; // 每次重试时重置重定向计数
+    currentUrl = buildUrl(opts.url, opts.params); // 重置URL
+    
     try {
-      //method
-      const method = opts.method?.toLocaleUpperCase() || 'GET';
-      if (method == "POST") {
-        curl.setopt(constants.CURLOPT.POST, 1);
-      } else if (method !== "GET") {
-        curl.setopt(constants.CURLOPT.CUSTOMREQUEST, method)
-      }
-      if (method == "HEAD") {
-        curl.setopt(constants.CURLOPT.NOBODY, 1);
-      }
-
-      //url
-      curl.setopt(constants.CURLOPT.URL, currentUrl);
-
-      //data/body/json
-      let body: any = "";
-      let contentType = opts.headers?.['Content-Type'] || '';
-      if (opts.data && typeof opts.data === 'object') {
-        if (body instanceof URLSearchParams) {
-          body = opts.data.toString()
-          contentType = 'application/x-www-form-urlencoded';
-        } else {
-          body = JSON.stringify(opts.data)
-          contentType = 'application/json';
-        }
-      } else if (typeof opts.data === 'string') {
-        body = opts.data;
-      }
-      if (body || ["POST", "PUT", "PATCH"].includes(method)) {
-        const data = Buffer.from(body)
-        curl.setopt(constants.CURLOPT.POSTFIELDS, data);
-        curl.setopt(constants.CURLOPT.POSTFIELDSIZE, data.length);
-        if (method == "GET") {
-          curl.setopt(constants.CURLOPT.CUSTOMREQUEST, method);
-        }
-      }
-
-      //headers
-      const headers: RequestHeader = opts.headers || {};
-      if (contentType) {
-        headers['Content-Type'] = contentType;
-      }
-      curl.setHeaders(headers);
-
-      //cookie
-      curl.setopt(constants.CURLOPT.COOKIEFILE, '');
-      curl.setopt(constants.CURLOPT.COOKIELIST, 'ALL');
-
-      if (opts.jar) {
-        const cookieJar = opts.jar;
-        const cookies = cookieJar.getCookiesSync(currentUrl);
-        if (cookies.length > 0) {
-          const cookieString = cookies.map(cookie => `${cookie.key}=${cookie.value}`).join('; ');
-          curl.setopt(constants.CURLOPT.COOKIE, cookieString);
-        }
-      }
-
-      //auth
-      if (opts.auth) {
-        const { username, password } = opts.auth;
-        curl.setopt(constants.CURLOPT.USERNAME, username);
-        curl.setopt(constants.CURLOPT.PASSWORD, password);
-      }
-
-      //timeout
-      curl.setopt(constants.CURLOPT.TIMEOUT_MS, (opts.timeout || 0) * 1000);
-
-      // 禁用自动重定向，我们手动处理
-      curl.setopt(constants.CURLOPT.FOLLOWLOCATION, 0);
-
-      //代理
-      if (opts.proxy) {
-        const proxy = new URL(opts.proxy);
-        curl.setopt(constants.CURLOPT.PROXY, opts.proxy);
-        if (!proxy.protocol.startsWith('socks')) {
-          curl.setopt(constants.CURLOPT.HTTPPROXYTUNNEL, 1);
-        }
-        if (proxy.username && proxy.password) {
-          curl.setopt(constants.CURLOPT.PROXYUSERNAME, proxy.username);
-          curl.setopt(constants.CURLOPT.PROXYPASSWORD, proxy.password);
-        }
-      }
-
-      // 显式禁用SSL验证
-      if (opts.verifySsl === false) {
-        curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
-        curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
-      } else {
-        const certPath = getCertPath();
-        if (certPath) {
-          curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 1);
-          curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 2);
-          curl.setopt(constants.CURLOPT.CAINFO, certPath);
-          curl.setopt(constants.CURLOPT.PROXY_CAINFO, certPath);
-          curl.setopt(constants.CURLOPT.SSLVERSION, constants.CURL_SSLVERSION.DEFAULT);
-        }
-      }
-
-      if (opts.referer) {
-        curl.setopt(constants.CURLOPT.REFERER, opts.referer);
-      }
-      if (opts.acceptEncoding) {
-        curl.setopt(constants.CURLOPT.ACCEPT_ENCODING, opts.acceptEncoding);
-      }
-
-      //指纹
-      if (opts.impersonate) {
-        curl.impersonate(opts.impersonate, true);
-      }
-
-      curl.setopt(constants.CURLOPT.MAX_RECV_SPEED_LARGE, 0);
-
-      //------开始请求------
-      const resp = await executeRequest(curl);
-
-      // 记录当前响应的URL
-      finalResponseUrl = resp.url || currentUrl;
-
-      // 处理 cookie
-      if (opts.jar) {
-        if (resp.headers.get('set-cookie')) {
-          const setCookieHeader = resp.headers.getAll('set-cookie') || [];
-          setCookieHeader.forEach((cookie: string) => {
-            try {
-              debug(`从响应头设置 cookie: ${cookie}`);
-              opts.jar && opts.jar.setCookieSync(cookie, finalResponseUrl);
-            } catch (e) {
-              debug('从响应头设置 cookie 失败:', e);
-            }
-          });
-        }
-      }
-
-      // 检查是否需要重定向
-      const locationHeader = resp.headers.get('location');
-      if (opts.followRedirects && resp.status >= 300 && resp.status < 400 && locationHeader) {
-        if (redirectCount >= maxRedirects) {
-          throw new Error(`重定向次数超过限制 (${maxRedirects})`);
-        }
-        // 处理相对 URL 和绝对 URL
+      // 内层重定向循环
+      while (redirectCount <= maxRedirects) {
+        const curl = new Curl();
         try {
-          currentUrl = new URL(locationHeader, currentUrl).toString();
-        } catch (e) {
-          // 如果解析失败，尝试直接使用 location
-          currentUrl = locationHeader;
-        }
-
-        redirectCount++;
-        debug(`重定向到: ${currentUrl} (第 ${redirectCount} 次)`);
-
-        // 对于 POST/PUT/PATCH 请求在重定向后通常变为 GET
-        if (resp.status === 301 || resp.status === 302 || resp.status === 303) {
-          if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
-            opts.method = 'GET';
-            opts.data = undefined; // 清除请求体
+          //method
+          const method = opts.method?.toLocaleUpperCase() || 'GET';
+          if (method == "POST") {
+            curl.setopt(constants.CURLOPT.POST, 1);
+          } else if (method !== "GET") {
+            curl.setopt(constants.CURLOPT.CUSTOMREQUEST, method)
           }
+          if (method == "HEAD") {
+            curl.setopt(constants.CURLOPT.NOBODY, 1);
+          }
+
+          //url
+          curl.setopt(constants.CURLOPT.URL, currentUrl);
+
+          //data/body/json
+          let body: any = "";
+          let contentType = opts.headers?.['Content-Type'] || '';
+          if (opts.data && typeof opts.data === 'object') {
+            if (body instanceof URLSearchParams) {
+              body = opts.data.toString()
+              contentType = 'application/x-www-form-urlencoded';
+            } else {
+              body = JSON.stringify(opts.data)
+              contentType = 'application/json';
+            }
+          } else if (typeof opts.data === 'string') {
+            body = opts.data;
+          }
+          if (body || ["POST", "PUT", "PATCH"].includes(method)) {
+            const data = Buffer.from(body)
+            curl.setopt(constants.CURLOPT.POSTFIELDS, data);
+            curl.setopt(constants.CURLOPT.POSTFIELDSIZE, data.length);
+            if (method == "GET") {
+              curl.setopt(constants.CURLOPT.CUSTOMREQUEST, method);
+            }
+          }
+
+          //headers
+          const headers: RequestHeader = opts.headers || {};
+          if (contentType) {
+            headers['Content-Type'] = contentType;
+          }
+          curl.setHeaders(headers);
+
+          //cookie
+          curl.setopt(constants.CURLOPT.COOKIEFILE, '');
+          curl.setopt(constants.CURLOPT.COOKIELIST, 'ALL');
+
+          if (opts.jar) {
+            const cookieJar = opts.jar;
+            const cookies = cookieJar.getCookiesSync(currentUrl);
+            if (cookies.length > 0) {
+              const cookieString = cookies.map(cookie => `${cookie.key}=${cookie.value}`).join('; ');
+              curl.setopt(constants.CURLOPT.COOKIE, cookieString);
+            }
+          }
+
+          //auth
+          if (opts.auth) {
+            const { username, password } = opts.auth;
+            curl.setopt(constants.CURLOPT.USERNAME, username);
+            curl.setopt(constants.CURLOPT.PASSWORD, password);
+          }
+
+          //timeout
+          curl.setopt(constants.CURLOPT.TIMEOUT_MS, (opts.timeout || 0) * 1000);
+
+          // 禁用自动重定向，我们手动处理
+          curl.setopt(constants.CURLOPT.FOLLOWLOCATION, 0);
+
+          //代理
+          if (opts.proxy) {
+            const proxy = new URL(opts.proxy);
+            curl.setopt(constants.CURLOPT.PROXY, opts.proxy);
+            if (!proxy.protocol.startsWith('socks')) {
+              curl.setopt(constants.CURLOPT.HTTPPROXYTUNNEL, 1);
+            }
+            if (proxy.username && proxy.password) {
+              curl.setopt(constants.CURLOPT.PROXYUSERNAME, proxy.username);
+              curl.setopt(constants.CURLOPT.PROXYPASSWORD, proxy.password);
+            }
+          }
+
+          // 显式禁用SSL验证
+          if (opts.verifySsl === false) {
+            curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
+            curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
+          } else {
+            const certPath = getCertPath();
+            if (certPath) {
+              curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 1);
+              curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 2);
+              curl.setopt(constants.CURLOPT.CAINFO, certPath);
+              curl.setopt(constants.CURLOPT.PROXY_CAINFO, certPath);
+              curl.setopt(constants.CURLOPT.SSLVERSION, constants.CURL_SSLVERSION.DEFAULT);
+            }
+          }
+
+          if (opts.referer) {
+            curl.setopt(constants.CURLOPT.REFERER, opts.referer);
+          }
+          if (opts.acceptEncoding) {
+            curl.setopt(constants.CURLOPT.ACCEPT_ENCODING, opts.acceptEncoding);
+          }
+
+          //指纹
+          if (opts.impersonate) {
+            curl.impersonate(opts.impersonate, true);
+          }
+
+          curl.setopt(constants.CURLOPT.MAX_RECV_SPEED_LARGE, 0);
+
+          //------开始请求------
+          const resp = await executeRequest(curl);
+
+          // 记录当前响应的URL
+          finalResponseUrl = resp.url || currentUrl;
+
+          // 处理 cookie
+          if (opts.jar) {
+            if (resp.headers.get('set-cookie')) {
+              const setCookieHeader = resp.headers.getAll('set-cookie') || [];
+              setCookieHeader.forEach((cookie: string) => {
+                try {
+                  debug(`从响应头设置 cookie: ${cookie}`);
+                  opts.jar && opts.jar.setCookieSync(cookie, finalResponseUrl);
+                } catch (e) {
+                  debug('从响应头设置 cookie 失败:', e);
+                }
+              });
+            }
+          }
+
+          // 检查是否需要重定向
+          const locationHeader = resp.headers.get('location');
+          if (opts.followRedirects && resp.status >= 300 && resp.status < 400 && locationHeader) {
+            if (redirectCount >= maxRedirects) {
+              throw new Error(`重定向次数超过限制 (${maxRedirects})`);
+            }
+            // 处理相对 URL 和绝对 URL
+            try {
+              currentUrl = new URL(locationHeader, currentUrl).toString();
+            } catch (e) {
+              // 如果解析失败，尝试直接使用 location
+              currentUrl = locationHeader;
+            }
+
+            redirectCount++;
+            debug(`重定向到: ${currentUrl} (第 ${redirectCount} 次)`);
+
+            // 对于 POST/PUT/PATCH 请求在重定向后通常变为 GET
+            if (resp.status === 301 || resp.status === 302 || resp.status === 303) {
+              if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+                opts.method = 'GET';
+                opts.data = undefined; // 清除请求体
+              }
+            }
+
+            continue; // 继续下一次请求
+          }
+
+          // 没有重定向，返回最终响应
+          return {
+            ...resp,
+            url: finalResponseUrl, // 使用记录的最终响应URL
+            redirectCount
+          };
+
+        } finally {
+          curl.close();
         }
-
-        continue; // 继续下一次请求
       }
-
-      // 没有重定向，返回最终响应
-      return {
-        ...resp,
-        url: finalResponseUrl, // 使用记录的最终响应URL
-        redirectCount
-      };
-
-    } finally {
-      curl.close();
+      throw new Error(`重定向次数超过限制 (${maxRedirects})`);
+    } catch (error) {
+      // 如果是最后一次重试，抛出错误
+      if (retryAttempt >= maxRetries) {
+        throw error;
+      }
+      // 否则记录重试信息并继续
+      debug(`请求失败，第 ${retryAttempt + 1} 次重试: ${error}`);
     }
   }
-
-  throw new Error(`重定向次数超过限制 (${maxRedirects})`);
+  
+  // 这行代码理论上不会执行到，但为了类型安全
+  throw new Error('请求失败，所有重试都已用完');
 }
 
 async function get(url: string, options: Omit<RequestOptions, 'url' | 'method'> = {}): Promise<Response> {
