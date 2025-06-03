@@ -290,8 +290,8 @@ async function request(options: RequestOptions): Promise<Response> {
   const opts = { ...defaultOptions, ...options };
   let currentUrl = buildUrl(opts.url, opts.params);
   let redirectCount = 0;
-  const maxRedirects = opts.maxRedirects || 5;
-  const maxRetries = opts.retryCount || 0;
+  const maxRedirects = opts.maxRedirects ?? 5;
+  const maxRetries = opts.retryCount ?? 0;
   let finalResponseUrl = currentUrl;
 
   // 外层重试循环

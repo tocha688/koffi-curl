@@ -1,6 +1,6 @@
 {
   "name": "koffi-curl",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Node.js libcurl bindings using koffi with browser fingerprint capabilities",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
