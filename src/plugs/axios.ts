@@ -6,16 +6,20 @@ import { CURL_IMPERSONATE } from "../bindings/constants";
 import { CookieJar } from "tough-cookie";
 import { mergeCookieStr } from "../utils/cookies";
 
-export interface CurlAxiosConfig<D = any> extends AxiosRequestConfig {
-    data?: D;
-    followRedirects?: boolean;
-    maxRedirects?: number;
-    proxy?: string | any;
-    userAgent?: string;
-    impersonate?: CURL_IMPERSONATE;
-    verifySsl?: boolean;
+// export interface CurlAxiosConfig<D = any> extends AxiosRequestConfig {
+//     data?: D;
+//     followRedirects?: boolean;
+//     maxRedirects?: number;
+//     proxy?: string | any;
+//     userAgent?: string;
+//     impersonate?: CURL_IMPERSONATE;
+//     verifySsl?: boolean;
+//     cookieEnable?: boolean;
+//     retryCount?:number;
+// }
+
+export type CurlAxiosConfig = AxiosRequestConfig & RequestOptions & {
     cookieEnable?: boolean;
-    retryCount?:number;
 }
 
 
@@ -36,6 +40,7 @@ export class CurlAxios extends Axios {
     jar?: CookieJar;
     constructor(config?: CurlAxiosConfig) {
         super(config);
+        //@ts-ignore
         this.defaults.adapter = customHttpClient;
         if (!config) return;
         if (config.cookieEnable) {
@@ -48,7 +53,7 @@ export class CurlAxios extends Axios {
             // 从 cookieJar 中获取 Cookie
             if (this.jar) {
                 //@ts-ignore
-                config.jar= this.jar;
+                config.jar = this.jar;
             }
             return config;
         });
@@ -63,28 +68,28 @@ export class CurlAxios extends Axios {
             }
         );
     }
-    post<T = any, R = AxiosResponse<T, any>, D = any>(url: string, data?: D, config?: CurlAxiosConfig<D>): Promise<R> {
+    post<T = any, R = AxiosResponse<T, any>>(url: string, data?: any, config?: CurlAxiosConfig): Promise<R> {
         return super.post(url, data, config);
     }
-    get<T = any, R = AxiosResponse<T, any>, D = any>(url: string, config?: CurlAxiosConfig<D>): Promise<R> {
+    get<T = any, R = AxiosResponse<T, any>>(url: string, config?: CurlAxiosConfig): Promise<R> {
         return super.get(url, config);
     }
-    request<T = any, R = AxiosResponse<T, any>, D = any>(config: CurlAxiosConfig): Promise<R> {
+    request<T = any, R = AxiosResponse<T, any>>(config: CurlAxiosConfig): Promise<R> {
         return super.request(config);
     }
-    delete<T = any, R = AxiosResponse<T, any>, D = any>(url: string, config?: CurlAxiosConfig<D>): Promise<R> {
+    delete<T = any, R = AxiosResponse<T, any>>(url: string, config?: CurlAxiosConfig): Promise<R> {
         return super.delete(url, config);
     }
-    put<T = any, R = AxiosResponse<T, any>, D = any>(url: string, data?: D, config?: CurlAxiosConfig<D>): Promise<R> {
+    put<T = any, R = AxiosResponse<T, any>>(url: string, data?: any, config?: CurlAxiosConfig): Promise<R> {
         return super.put(url, data, config);
     }
-    patch<T = any, R = AxiosResponse<T, any>, D = any>(url: string, data?: D, config?: CurlAxiosConfig<D>): Promise<R> {
+    patch<T = any, R = AxiosResponse<T, any>>(url: string, data?: any, config?: CurlAxiosConfig): Promise<R> {
         return super.patch(url, data, config);
     }
-    head<T = any, R = AxiosResponse<T, any>, D = any>(url: string, config?: CurlAxiosConfig<D>): Promise<R> {
+    head<T = any, R = AxiosResponse<T, any>>(url: string, config?: CurlAxiosConfig): Promise<R> {
         return super.head(url, config);
     }
-    options<T = any, R = AxiosResponse<T, any>, D = any>(url: string, config?: CurlAxiosConfig<D>): Promise<R> {
+    options<T = any, R = AxiosResponse<T, any>>(url: string, config?: CurlAxiosConfig): Promise<R> {
         return super.options(url, config);
     }
 }
