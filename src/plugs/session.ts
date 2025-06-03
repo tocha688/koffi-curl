@@ -4,8 +4,9 @@ import req, { Response } from "../core/request";
 import { RequestOptions } from "../core";
 import { CookieJar } from "tough-cookie";
 
-export type CurlSessionConfig = Omit<AxiosRequestConfig<any>, 'proxy'> & RequestOptions & {
-    proxy: string;
+export type CurlSessionConfig = Omit<AxiosRequestConfig<any>, 'proxy'> & Omit<RequestOptions, 'url'> & {
+    url?: string;
+    proxy?: string;
 };
 
 
@@ -28,7 +29,7 @@ export class CurlSession {
     jar?: CookieJar;
     axios: Axios;
     constructor(config?: CurlSessionConfig) {
-        const axios = this.axios = new Axios(config  as any)
+        const axios = this.axios = new Axios(config as any)
         //@ts-ignore
         axios.defaults.adapter = customHttpClient;
         if (!config) return;
