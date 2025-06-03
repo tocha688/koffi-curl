@@ -4,24 +4,22 @@ import req, { Response } from "../core/request";
 import { RequestOptions } from "../core";
 import { CookieJar } from "tough-cookie";
 
-export type CurlAxiosConfig = AxiosRequestConfig<any> & RequestOptions;
+export type CurlSessionConfig = Omit<AxiosRequestConfig<any>, 'proxy'> & RequestOptions & {
+    proxy: string;
+};
 
 
-export type CurlAxiosResponse = AxiosResponse & Response;
+export type CurlSessionResponse = Omit<AxiosResponse<any>, 'headers'> & Response & {
+    text: string;
+}
 
-
-const customHttpClient = async (config: CurlAxiosConfig): Promise<CurlAxiosResponse> => {
+const customHttpClient = async (config: CurlSessionConfig): Promise<CurlSessionResponse> => {
     const response = await req.request(config as any);
     return {
-        data: response.data,
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers as any,
-        url: response.url,
-        redirectCount: response.redirectCount,
-        buffer: response.buffer,
+        ...response,
         config: config as any,
         request: config,
+        text: response.data as string,
     };
 };
 
@@ -29,8 +27,8 @@ const customHttpClient = async (config: CurlAxiosConfig): Promise<CurlAxiosRespo
 export class CurlSession {
     jar?: CookieJar;
     axios: Axios;
-    constructor(config?: CurlAxiosConfig) {
-        const axios = this.axios = new Axios(config)
+    constructor(config?: CurlSessionConfig) {
+        const axios = this.axios = new Axios(config  as any)
         //@ts-ignore
         axios.defaults.adapter = customHttpClient;
         if (!config) return;
@@ -57,29 +55,29 @@ export class CurlSession {
             }
         );
     }
-    post(url: string, data?: any, config?: CurlAxiosConfig): Promise<CurlAxiosResponse> {
-        return this.axios.post(url, data, config);
+    post(url: string, data?: any, config?: CurlSessionConfig): Promise<CurlSessionResponse> {
+        return this.axios.post(url, data, config as any);
     }
-    get(url: string, config?: CurlAxiosConfig): Promise<CurlAxiosResponse> {
-        return this.axios.get(url, config);
+    get(url: string, config?: CurlSessionConfig): Promise<CurlSessionResponse> {
+        return this.axios.get(url, config as any);
     }
-    request(config: CurlAxiosConfig): Promise<CurlAxiosResponse> {
-        return this.axios.request(config);
+    request(config: CurlSessionConfig): Promise<CurlSessionResponse> {
+        return this.axios.request(config as any);
     }
-    delete(url: string, config?: CurlAxiosConfig): Promise<CurlAxiosResponse> {
-        return this.axios.delete(url, config);
+    delete(url: string, config?: CurlSessionConfig): Promise<CurlSessionResponse> {
+        return this.axios.delete(url, config as any);
     }
-    put(url: string, data?: any, config?: CurlAxiosConfig): Promise<CurlAxiosResponse> {
-        return this.axios.put(url, data, config);
+    put(url: string, data?: any, config?: CurlSessionConfig): Promise<CurlSessionResponse> {
+        return this.axios.put(url, data, config as any);
     }
-    patch(url: string, data?: any, config?: CurlAxiosConfig): Promise<CurlAxiosResponse> {
-        return this.axios.patch(url, data, config);
+    patch(url: string, data?: any, config?: CurlSessionConfig): Promise<CurlSessionResponse> {
+        return this.axios.patch(url, data, config as any);
     }
-    head(url: string, config?: CurlAxiosConfig): Promise<CurlAxiosResponse> {
-        return this.axios.head(url, config);
+    head(url: string, config?: CurlSessionConfig): Promise<CurlSessionResponse> {
+        return this.axios.head(url, config as any);
     }
-    options(url: string, config?: CurlAxiosConfig): Promise<CurlAxiosResponse> {
-        return this.axios.options(url, config)
+    options(url: string, config?: CurlSessionConfig): Promise<CurlSessionResponse> {
+        return this.axios.options(url, config as any)
     }
 }
 

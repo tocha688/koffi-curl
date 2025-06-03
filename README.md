@@ -89,18 +89,18 @@ const formResponse = await req.post("https://httpbin.org/post",
 );
 ```
 
-## 🔧 Axios Plugin
+## 🔧 Session Plugin
 
-Use the familiar Axios API with curl-impersonate power:
+Use the familiar Session API with curl-impersonate power:
 
 ```javascript
-import { CurlAxios, logger, LogLevel } from "koffi-curl";
+import { CurlSession, logger, LogLevel } from "koffi-curl";
 
 // Enable debug logging
 logger.setLevel(LogLevel.DEBUG);
 
 // Create axios instance with cookie support
-const axios = new CurlAxios({
+const axios = new CurlSession({
   baseURL: "https://api.example.com",
   timeout: 10000,
   cookieEnable: true,
@@ -235,7 +235,7 @@ await req.get("https://httpbin.org/headers", {
 ### Cookie Management with Axios Plugin
 
 ```javascript
-const axios = new CurlAxios({
+const axios = new CurlSession({
   cookieEnable: true,  // Enable automatic cookie handling
   impersonate: "chrome136"
 });
