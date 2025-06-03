@@ -23,5 +23,5 @@ export { libcurlVersion } from './bindings';
 export { logger, LogLevel } from './utils/logger';
 
 //导出插件
-export * from './plugs/axios';
+export * from './plugs/session';
 
