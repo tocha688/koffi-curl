@@ -298,7 +298,7 @@ async function request(options: RequestOptions): Promise<Response> {
   for (let retryAttempt = 0; retryAttempt <= maxRetries; retryAttempt++) {
     redirectCount = 0; // 每次重试时重置重定向计数
     currentUrl = buildUrl(opts.url, opts.params); // 重置URL
-    
+
     try {
       // 内层重定向循环
       while (redirectCount <= maxRedirects) {
@@ -439,10 +439,7 @@ async function request(options: RequestOptions): Promise<Response> {
 
           // 检查是否需要重定向
           const locationHeader = resp.headers.get('location');
-          if (opts.followRedirects && resp.status >= 300 && resp.status < 400 && locationHeader) {
-            if (redirectCount >= maxRedirects) {
-              throw new Error(`重定向次数超过限制 (${maxRedirects})`);
-            }
+          if (opts.followRedirects && resp.status >= 300 && resp.status < 400 && locationHeader && redirectCount < maxRedirects) {
             // 处理相对 URL 和绝对 URL
             try {
               currentUrl = new URL(locationHeader, currentUrl).toString();
@@ -461,8 +458,7 @@ async function request(options: RequestOptions): Promise<Response> {
                 opts.data = undefined; // 清除请求体
               }
             }
-
-            continue; // 继续下一次请求
+            continue;
           }
 
           // 没有重定向，返回最终响应
@@ -476,7 +472,6 @@ async function request(options: RequestOptions): Promise<Response> {
           curl.close();
         }
       }
-      throw new Error(`重定向次数超过限制 (${maxRedirects})`);
     } catch (error) {
       // 如果是最后一次重试，抛出错误
       if (retryAttempt >= maxRetries) {
@@ -486,7 +481,7 @@ async function request(options: RequestOptions): Promise<Response> {
       debug(`请求失败，第 ${retryAttempt + 1} 次重试: ${error}`);
     }
   }
-  
+
   // 这行代码理论上不会执行到，但为了类型安全
   throw new Error('请求失败，所有重试都已用完');
 }

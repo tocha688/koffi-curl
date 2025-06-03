@@ -20,7 +20,7 @@ const customHttpClient = async (config: CurlSessionConfig): Promise<CurlSessionR
         ...response,
         config: config as any,
         request: config,
-        text: response.data as string,
+        text: typeof response.data === 'string' ? response.data : JSON.stringify(response.data),
     };
 };
 
