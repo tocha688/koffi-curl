@@ -28,12 +28,14 @@ const customHttpClient = async (config: CurlSessionConfig): Promise<CurlSessionR
 export class CurlSession {
     jar?: CookieJar;
     axios: Axios;
+    private _config?: CurlSessionConfig;
     constructor(config?: CurlSessionConfig) {
+        this._config = config || {};
         const axios = this.axios = new Axios(config as any)
         //@ts-ignore
         axios.defaults.adapter = customHttpClient;
         if (!config) return;
-        this.jar = new CookieJar();
+        this.jar = config?.jar ?? new CookieJar();
         this.initHook();
     }
     private initHook() {
@@ -55,6 +57,12 @@ export class CurlSession {
                 return Promise.reject(error);
             }
         );
+    }
+    clone(): CurlSession {
+        return new CurlSession({
+            jar: this.jar,
+            ...this._config,
+        } as any);
     }
     post(url: string, data?: any, config?: CurlSessionConfig): Promise<CurlSessionResponse> {
         return this.axios.post(url, data, config as any);
