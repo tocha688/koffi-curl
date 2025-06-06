@@ -52,3 +52,21 @@ export type curl_header_callback = (
   nitems: number, 
   userdata: any
 ) => number;
+
+// 新增 multi handle 相关的回调类型
+export type curl_socket_callback = (
+  curl: any,
+  sockfd: number, 
+  what: number, 
+  userdata: any,
+  socketp: any
+) => number;
+
+export type curl_timer_callback = (
+  curlm: any,
+  timeout_ms: number, 
+  userdata: any
+) => number;
+
+// CurlMsg 结构体相关类型
+export type CurlMsg = any;

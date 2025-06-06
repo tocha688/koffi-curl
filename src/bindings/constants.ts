@@ -525,6 +525,43 @@ export const CURLE = {
   UNRECOVERABLE_POLL: 99,
 };
 
+export const CURLMOPT = {
+  SOCKETFUNCTION: 20000 + 1,
+  SOCKETDATA: 10000 + 2,
+  PIPELINING: 0 + 3,
+  TIMERFUNCTION: 20000 + 4,
+  TIMERDATA: 10000 + 5,
+  MAXCONNECTS: 0 + 6,
+  MAX_HOST_CONNECTIONS: 0 + 7,
+  MAX_PIPELINE_LENGTH: 0 + 8,
+  CONTENT_LENGTH_PENALTY_SIZE: 30000 + 9,
+  CHUNK_LENGTH_PENALTY_SIZE: 30000 + 10,
+  PIPELINING_SITE_BL: 10000 + 11,
+  PIPELINING_SERVER_BL: 10000 + 12,
+  MAX_TOTAL_CONNECTIONS: 0 + 13,
+  PUSHFUNCTION: 20000 + 14,
+  PUSHDATA: 10000 + 15,
+  MAX_CONCURRENT_STREAMS: 0 + 16
+};
+
+// 添加 CURLM 错误码
+export const CURLM = {
+  OK: 0,
+  BAD_HANDLE: 1,
+  BAD_EASY_HANDLE: 2,
+  OUT_OF_MEMORY: 3,
+  INTERNAL_ERROR: 4,
+  BAD_SOCKET: 5,
+  UNKNOWN_OPTION: 6,
+  ADDED_ALREADY: 7,
+  RECURSIVE_API_CALL: 8,
+  WAKEUP_FAILURE: 9,
+  BAD_FUNCTION_ARGUMENT: 10,
+  ABORTED_BY_CALLBACK: 11,
+  UNRECOVERABLE_POLL: 12,
+  LAST: 13
+};
+
 // SSL 版本常量
 export enum CURL_SSLVERSION {
   DEFAULT = 0,
@@ -550,4 +587,4 @@ export type CURL_IMPERSONATE = "edge99" | "edge101" | "chrome99" | "chrome100" |
   "chrome99_android" | "chrome131_android" | "safari153" | "safari155" | "safari170" | "safari172_ios" | "safari180" |
   "safari180_ios" | "safari184" | "safari184_ios" | "firefox133" | "firefox135" | "tor145" | "chrome" | "edge" | "safari" |
   "safari_ios" | "chrome_android" | "firefox" | "safari15_3" | "safari15_5" | "safari17_0" | "safari17_2_ios" | "safari18_0" |
-  "safari18_0_ios" | "safari18_4" | "safari18_4_ios"
+  "safari18_0_ios" | "safari18_4" | "safari18_4_ios";

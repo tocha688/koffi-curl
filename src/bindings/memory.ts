@@ -176,3 +176,82 @@ export function createDoublePointerBuffer(): { buffer: Buffer, ptr: Pointer, rea
     }
   };
 }
+
+/**
+ * 读取 CurlMsg 的消息类型
+ * @param curlMsg CurlMsg 指针
+ * @returns 消息类型
+ */
+export function readCurlMsgType(curlMsg: Pointer): number {
+  try {
+    // CurlMsg 结构体的第一个字段是 msg (int)
+    const msgType = koffi.decode(curlMsg, 0, 'int');
+    debug(`读取消息类型: ${msgType}`);
+    return msgType;
+  } catch (e) {
+    debug('读取 CurlMsg 类型失败:', e);
+    return 0;
+  }
+}
+
+/**
+ * 读取 CurlMsg 的 easy_handle
+ * @param curlMsg CurlMsg 指针
+ * @returns easy_handle 指针
+ */
+export function readCurlMsgEasyHandle(curlMsg: Pointer): Pointer {
+  try {
+    // 在不同架构上，结构体布局可能不同
+    // 尝试多个可能的偏移位置
+    const possibleOffsets = [4, 8, 16]; // 不同的对齐方式
+    
+    for (const offset of possibleOffsets) {
+      try {
+        const handlePtr = koffi.decode(curlMsg, offset, 'void*');
+        if (handlePtr && handlePtr !== 0) {
+          debug(`在偏移 ${offset} 找到 easy_handle: ${!!handlePtr}`);
+          return handlePtr;
+        }
+      } catch (e) {
+        // 继续尝试下一个偏移
+      }
+    }
+    
+    debug('未能找到有效的 easy_handle');
+    return null;
+  } catch (e) {
+    debug('读取 CurlMsg easy_handle 失败:', e);
+    return null;
+  }
+}
+
+/**
+ * 读取 CurlMsg 的结果码
+ * @param curlMsg CurlMsg 指针
+ * @returns 结果码
+ */
+export function readCurlMsgResult(curlMsg: Pointer): number {
+  try {
+    // 尝试多个可能的偏移位置读取结果码
+    const possibleOffsets = [8, 12, 16, 20, 24]; // 不同的对齐方式
+    
+    for (const offset of possibleOffsets) {
+      try {
+        const result = koffi.decode(curlMsg, offset, 'int');
+        // 结果码通常是小的正数或负数，不会是很大的数
+        if (result >= -100 && result <= 100) {
+          debug(`在偏移 ${offset} 找到结果码: ${result}`);
+          return result;
+        }
+      } catch (e) {
+        // 继续尝试下一个偏移
+      }
+    }
+    
+    debug('未能找到有效的结果码，返回默认值 -1');
+    return -1;
+  } catch (e) {
+    debug('读取 CurlMsg 结果失败:', e);
+    return -1;
+  }
+}

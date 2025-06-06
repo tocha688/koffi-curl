@@ -31,6 +31,13 @@ export class Curl {
   }
 
   /**
+   * 获取内部 CURL 句柄（用于 AsyncCurl）
+   */
+  get curlHandle(): CURL {
+    return this.handle;
+  }
+
+  /**
    * 关闭并清理 CURL 句柄
    */
   close(): void {

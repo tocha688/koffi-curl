@@ -79,14 +79,16 @@ function getLibraryPath(): string {
 // 声明 libcurl 函数
 const libcurl = koffi.load(getLibraryPath());
 
-// 定义回调原
-//size_t WriteCallbackProto(void*, size_t, size_t, void*)
-// export const writeCallbackProto = koffi.proto('size_t WriteCallbackProto(void*, size_t, size_t, void*)');
+// 定义回调原型 - 确保参数类型正确
 export const headerCallbackProto = koffi.proto('size_t HeaderCallbackProto(void*, size_t, size_t, void*)');
 export const progressCallbackProto = koffi.proto('int ProgressCallbackProto(void*, double, double, double, double)');
 
+// 新增 multi handle 回调原型 - 修正参数类型
+export const socketCallbackProto = koffi.proto('int SocketCallbackProto(void*, int, int, void*, void*)');
+export const timerCallbackProto = koffi.proto('int TimerCallbackProto(void*, long, void*)');
+
 // 导出 libcurl 函数 - 使用具体类型而不是可变参数
-export const curl = {
+export const lib = {
     // 初始化/清理函数
     curl_global_init: libcurl.func('curl_global_init', 'int', ['long']),
     curl_global_cleanup: libcurl.func('curl_global_cleanup', 'void', []),
@@ -140,12 +142,35 @@ export const curl = {
     curl_mime_filename: libcurl.func('curl_mime_filename', 'int', ['void*', 'string']),
     curl_mime_filedata: libcurl.func('curl_mime_filedata', 'int', ['void*', 'string']),
     curl_mime_free: libcurl.func('curl_mime_free', 'void', ['void*']),
+
+    //curl_multi_init
+    curl_multi_init: libcurl.func('curl_multi_init', 'void*', []),
+    curl_multi_cleanup: libcurl.func('curl_multi_cleanup', 'int', ['void*']),
+    curl_multi_add_handle: libcurl.func('curl_multi_add_handle', 'int', ['void*', 'void*']),
+    curl_multi_remove_handle: libcurl.func('curl_multi_remove_handle', 'int', ['void*', 'void*']),
+    curl_multi_socket_action: libcurl.func('curl_multi_socket_action', 'int', ['void*', 'int', 'int', 'void*']),
+    curl_multi_setopt: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', 'void*']),
+    curl_multi_assign: libcurl.func('curl_multi_assign', 'int', ['void*', 'int', 'void*']),
+    curl_multi_perform: libcurl.func('curl_multi_perform', 'int', ['void*', 'void*']),
+    curl_multi_timeout: libcurl.func('curl_multi_timeout', 'int', ['void*', 'void*']),
+    curl_multi_wait: libcurl.func('curl_multi_wait', 'int', ['void*', 'void*', 'unsigned int', 'int', 'void*']),
+    curl_multi_poll: libcurl.func('curl_multi_poll', 'int', ['void*', 'void*', 'unsigned int', 'int', 'void*']),
+    curl_multi_wakeup: libcurl.func('curl_multi_wakeup', 'int', ['void*']),
+    curl_multi_info_read: libcurl.func('curl_multi_info_read', 'void*', ['void*', 'void*']),
+    curl_multi_strerror: libcurl.func('curl_multi_strerror', 'string', ['int']),
+    //opt
+    curl_multi_setopt_string: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', 'string']),
+    curl_multi_setopt_long: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', 'int64_t']),
+    curl_multi_setopt_pointer: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', 'void*']),
+    // curl_multi_setopt_callback: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', koffi.pointer(headerCallbackProto)]),
+    curl_multi_setopt_socket_callback: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', koffi.pointer(socketCallbackProto)]),
+    curl_multi_setopt_timer_callback: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', koffi.pointer(timerCallbackProto)]),
 };
 
 // 初始化 libcurl
-curl.curl_global_init(3); // CURL_GLOBAL_ALL
-
-// 在进程退出时清理
+lib.curl_global_init(3); // CURL_GLOBAL_ALL
+// 初始化 libcurl
+// 在进程退出时清理l_init(3); // CURL_GLOBAL_ALL
 process.on('exit', () => {
-    curl.curl_global_cleanup();
+    lib.curl_global_cleanup();// 在进程退出时清理
 });

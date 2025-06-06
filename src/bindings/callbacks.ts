@@ -1,7 +1,7 @@
 import koffi from 'koffi';
 import type { curl_write_callback, curl_header_callback, curl_xferinfo_callback, Pointer } from './types';
 import { saveReference, getReference, releaseReference, pointerToBuffer } from './memory';
-import { headerCallbackProto, progressCallbackProto } from './library';
+import { headerCallbackProto, progressCallbackProto, timerCallbackProto, socketCallbackProto } from './library';
 import { debug } from '../utils/logger';
 
 /**
@@ -37,7 +37,6 @@ export function createBufferCallback(
   return { callback: functionPointer, id: callbackId }; // 返回注册后的指针
 }
 
-
 export function createProgressCallback(
   callback: (dlTotal: number, dlNow: number, ulTotal: number, ulNow: number) => number
 ): { callback: any, id: number } {
@@ -57,10 +56,57 @@ export function createProgressCallback(
   return { callback: functionPointer, id: callbackId };
 }
 
+export function createTimerCallback(
+  callback: (timeoutMs: number) => void
+): { callback: any, id: number } {
+  const callbackId = nextCallbackId++;
+  const id = saveReference(callback);
+  
+  const timerCallback = function (curlm: any, timeout_ms: number, userdata: any) {
+    try {
+      const jsCallback = getReference(id) as (timeoutMs: number) => void;
+      jsCallback(timeout_ms);
+      return 0;
+    } catch (err) {
+      debug('Timer callback 错误:', err);
+      return 0;
+    }
+  };
+  
+  const functionPointer = koffi.register(timerCallback, koffi.pointer(timerCallbackProto));
+  REGISTERED_CALLBACKS.set(callbackId, functionPointer);
+  return { callback: functionPointer, id: callbackId };
+}
+
+export function createSocketCallback(
+  callback: (sockfd: number, what: number) => void
+): { callback: any, id: number } {
+  const callbackId = nextCallbackId++;
+  const id = saveReference(callback);
+  
+  const socketCallback = function (curl: any, sockfd: number, what: number, userdata: any, socketp: any) {
+    try {
+      const jsCallback = getReference(id) as (sockfd: number, what: number) => void;
+      jsCallback(sockfd, what);
+      return 0;
+    } catch (err) {
+      debug('Socket callback 错误:', err);
+      return 0;
+    }
+  };
+  
+  const functionPointer = koffi.register(socketCallback, koffi.pointer(socketCallbackProto));
+  REGISTERED_CALLBACKS.set(callbackId, functionPointer);
+  return { callback: functionPointer, id: callbackId };
+}
+
 export function releaseCallback(callbackId: number): void {
-  koffi.unregister(REGISTERED_CALLBACKS.get(callbackId));
+  const functionPointer = REGISTERED_CALLBACKS.get(callbackId);
+  if (functionPointer) {
+    koffi.unregister(functionPointer);
+    REGISTERED_CALLBACKS.delete(callbackId);
+  }
   releaseReference(callbackId);
-  REGISTERED_CALLBACKS.delete(callbackId);
 }
 
 export function cleanupCallbacks(): void {

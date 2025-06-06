@@ -2,7 +2,7 @@
 
 import * as _constants from './constants';
 import * as _types from './types';
-import { curl as libcurl } from './library';
+import { lib as libcurl } from './library';
 import * as _memory from './memory';
 import * as _callbacks from './callbacks';
 
