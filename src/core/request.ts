@@ -63,6 +63,8 @@ interface RequestOptions {
   impersonate?: CURL_IMPERSONATE;
   verifySsl?: boolean;
   jar?: CookieJar;
+  //请求类型 ipv4 ipv6 auto
+  ipType?: 'ipv4' | 'ipv6' | 'auto';
   //重试次数
   retryCount?: number;
   auth?: {
@@ -82,6 +84,8 @@ interface Response {
   url: string;
   redirectCount: number;
   buffer: Buffer;
+  //执行时间
+  duration: number;
 }
 
 const defaultOptions: Partial<RequestOptions> = {
@@ -232,6 +236,7 @@ async function executeRequest(curl: Curl): Promise<Response> {
     // 在新的事件循环迭代中执行 curl 请求
     setImmediate(() => {
       try {
+        const startTime = Date.now();
         const resultCode = curl.perform();
 
         if (resultCode !== 0) {
@@ -277,7 +282,8 @@ async function executeRequest(curl: Curl): Promise<Response> {
           data: parseReponseData(decompressedData, headers),
           buffer: responseDataBuffer,
           url: finalUrl,
-          redirectCount
+          redirectCount,
+          duration: Date.now() - startTime
         });
       } catch (error) {
         reject(error);
@@ -295,15 +301,15 @@ async function request(options: RequestOptions): Promise<Response> {
   let finalResponseUrl = currentUrl;
 
   // 外层重试循环
-  for (let retryAttempt = 0; retryAttempt <= maxRetries; retryAttempt++) {
-    redirectCount = 0; // 每次重试时重置重定向计数
-    currentUrl = buildUrl(opts.url, opts.params); // 重置URL
-
-    try {
-      // 内层重定向循环
-      while (redirectCount <= maxRedirects) {
-        const curl = new Curl();
-        try {
+  const curl = new Curl();
+  try {
+    for (let retryAttempt = 0; retryAttempt <= maxRetries; retryAttempt++) {
+      redirectCount = 0; // 每次重试时重置重定向计数
+      currentUrl = buildUrl(opts.url, opts.params); // 重置URL
+      try {
+        // 内层重定向循环
+        while (redirectCount <= maxRedirects) {
+          curl.reset();
           //method
           const method = opts.method?.toLocaleUpperCase() || 'GET';
           if (method == "POST") {
@@ -413,6 +419,20 @@ async function request(options: RequestOptions): Promise<Response> {
           if (opts.impersonate) {
             curl.impersonate(opts.impersonate, true);
           }
+          //设置ipv4
+          if (opts.ipType) {
+            switch (opts.ipType) {
+              case 'ipv4':
+                curl.setopt(constants.CURLOPT.IPRESOLVE, constants.CURL_IP_RESOLVE.V4);
+                break;
+              case 'ipv6':
+                curl.setopt(constants.CURLOPT.IPRESOLVE, constants.CURL_IP_RESOLVE.V6);
+                break;
+              case 'auto':
+                curl.setopt(constants.CURLOPT.IPRESOLVE, constants.CURL_IP_RESOLVE.WHATEVER);
+                break;
+            }
+          }
 
           curl.setopt(constants.CURLOPT.MAX_RECV_SPEED_LARGE, 0);
 
@@ -465,21 +485,23 @@ async function request(options: RequestOptions): Promise<Response> {
           return {
             ...resp,
             url: finalResponseUrl, // 使用记录的最终响应URL
-            redirectCount
+            redirectCount,
           };
 
-        } finally {
-          curl.close();
         }
+      } catch (error) {
+        // 如果是最后一次重试，抛出错误
+        if (retryAttempt >= maxRetries) {
+          throw error;
+        }
+        // 否则记录重试信息并继续
+        debug(`请求失败，第 ${retryAttempt + 1} 次重试: ${error}`);
       }
-    } catch (error) {
-      // 如果是最后一次重试，抛出错误
-      if (retryAttempt >= maxRetries) {
-        throw error;
-      }
-      // 否则记录重试信息并继续
-      debug(`请求失败，第 ${retryAttempt + 1} 次重试: ${error}`);
     }
+  }
+
+  finally {
+    curl.close();
   }
 
   // 这行代码理论上不会执行到，但为了类型安全
