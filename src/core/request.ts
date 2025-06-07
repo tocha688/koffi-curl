@@ -188,13 +188,13 @@ async function executeRequest(curl: Curl): Promise<Response> {
     const responseHeaderBuffers: Buffer[] = [];
 
     // 设置响应体回调
-    curl.setopt(constants.CURLOPT.WRITEFUNCTION, (data: Buffer) => {
+    curl.setopt(constants.CurlOpt.WRITEFUNCTION, (data: Buffer) => {
       responseDataBuffers.push(data);
       return data.length;
     });
 
     // 设置响应头回调
-    curl.setopt(constants.CURLOPT.HEADERFUNCTION, (data: Buffer) => {
+    curl.setopt(constants.CurlOpt.HEADERFUNCTION, (data: Buffer) => {
       responseHeaderBuffers.push(data);
       return data.length;
     });
@@ -211,21 +211,21 @@ async function executeRequest(curl: Curl): Promise<Response> {
         }
 
         // 获取响应信息，增加错误处理
-        const status = curl.getinfo(constants.CURLINFO.RESPONSE_CODE);
+        const status = curl.getinfo(constants.CurlInfo.RESPONSE_CODE);
 
         // 对于可能失败的字符串信息，使用默认值
         let finalUrl = '';
         let redirectCount = 0;
 
         try {
-          finalUrl = curl.getinfo(constants.CURLINFO.EFFECTIVE_URL) || '';
+          finalUrl = curl.getinfo(constants.CurlInfo.EFFECTIVE_URL) || '';
         } catch (e) {
           debug('无法获取有效URL，使用空字符串');
           finalUrl = '';
         }
 
         try {
-          redirectCount = curl.getinfo(constants.CURLINFO.REDIRECT_COUNT) || 0;
+          redirectCount = curl.getinfo(constants.CurlInfo.REDIRECT_COUNT) || 0;
         } catch (e) {
           debug('无法获取重定向次数，使用0');
           redirectCount = 0;
@@ -279,16 +279,16 @@ async function request(options: RequestOptions): Promise<Response> {
           //method
           const method = opts.method?.toLocaleUpperCase() || 'GET';
           if (method == "POST") {
-            curl.setopt(constants.CURLOPT.POST, 1);
+            curl.setopt(constants.CurlOpt.POST, 1);
           } else if (method !== "GET") {
-            curl.setopt(constants.CURLOPT.CUSTOMREQUEST, method)
+            curl.setopt(constants.CurlOpt.CUSTOMREQUEST, method)
           }
           if (method == "HEAD") {
-            curl.setopt(constants.CURLOPT.NOBODY, 1);
+            curl.setopt(constants.CurlOpt.NOBODY, 1);
           }
 
           //url
-          curl.setopt(constants.CURLOPT.URL, currentUrl);
+          curl.setopt(constants.CurlOpt.URL, currentUrl);
 
           //data/body/json
           let body: any = "";
@@ -306,10 +306,10 @@ async function request(options: RequestOptions): Promise<Response> {
           }
           if (body || ["POST", "PUT", "PATCH"].includes(method)) {
             const data = Buffer.from(body)
-            curl.setopt(constants.CURLOPT.POSTFIELDS, data);
-            curl.setopt(constants.CURLOPT.POSTFIELDSIZE, data.length);
+            curl.setopt(constants.CurlOpt.POSTFIELDS, data);
+            curl.setopt(constants.CurlOpt.POSTFIELDSIZE, data.length);
             if (method == "GET") {
-              curl.setopt(constants.CURLOPT.CUSTOMREQUEST, method);
+              curl.setopt(constants.CurlOpt.CUSTOMREQUEST, method);
             }
           }
 
@@ -321,64 +321,64 @@ async function request(options: RequestOptions): Promise<Response> {
           curl.setHeaders(headers);
 
           //cookie
-          curl.setopt(constants.CURLOPT.COOKIEFILE, '');
-          curl.setopt(constants.CURLOPT.COOKIELIST, 'ALL');
+          curl.setopt(constants.CurlOpt.COOKIEFILE, '');
+          curl.setopt(constants.CurlOpt.COOKIELIST, 'ALL');
 
           if (opts.jar) {
             const cookieJar = opts.jar;
             const cookies = cookieJar.getCookiesSync(currentUrl);
             if (cookies.length > 0) {
               const cookieString = cookies.map(cookie => `${cookie.key}=${cookie.value}`).join('; ');
-              curl.setopt(constants.CURLOPT.COOKIE, cookieString);
+              curl.setopt(constants.CurlOpt.COOKIE, cookieString);
             }
           }
 
           //auth
           if (opts.auth) {
             const { username, password } = opts.auth;
-            curl.setopt(constants.CURLOPT.USERNAME, username);
-            curl.setopt(constants.CURLOPT.PASSWORD, password);
+            curl.setopt(constants.CurlOpt.USERNAME, username);
+            curl.setopt(constants.CurlOpt.PASSWORD, password);
           }
 
           //timeout
-          curl.setopt(constants.CURLOPT.TIMEOUT_MS, (opts.timeout || 0) * 1000);
+          curl.setopt(constants.CurlOpt.TIMEOUT_MS, (opts.timeout || 0) * 1000);
 
           // 禁用自动重定向，我们手动处理
-          curl.setopt(constants.CURLOPT.FOLLOWLOCATION, 0);
+          curl.setopt(constants.CurlOpt.FOLLOWLOCATION, 0);
 
           //代理
           if (opts.proxy) {
             const proxy = new URL(opts.proxy);
-            curl.setopt(constants.CURLOPT.PROXY, opts.proxy);
+            curl.setopt(constants.CurlOpt.PROXY, opts.proxy);
             if (!proxy.protocol.startsWith('socks')) {
-              curl.setopt(constants.CURLOPT.HTTPPROXYTUNNEL, 1);
+              curl.setopt(constants.CurlOpt.HTTPPROXYTUNNEL, 1);
             }
             if (proxy.username && proxy.password) {
-              curl.setopt(constants.CURLOPT.PROXYUSERNAME, proxy.username);
-              curl.setopt(constants.CURLOPT.PROXYPASSWORD, proxy.password);
+              curl.setopt(constants.CurlOpt.PROXYUSERNAME, proxy.username);
+              curl.setopt(constants.CurlOpt.PROXYPASSWORD, proxy.password);
             }
           }
 
           // 显式禁用SSL验证
           if (opts.verifySsl === false) {
-            curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
-            curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
+            curl.setopt(constants.CurlOpt.SSL_VERIFYPEER, 0);
+            curl.setopt(constants.CurlOpt.SSL_VERIFYHOST, 0);
           } else {
             const certPath = getCertPath();
             if (certPath) {
-              curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 1);
-              curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 2);
-              curl.setopt(constants.CURLOPT.CAINFO, certPath);
-              curl.setopt(constants.CURLOPT.PROXY_CAINFO, certPath);
-              curl.setopt(constants.CURLOPT.SSLVERSION, constants.CURL_SSLVERSION.DEFAULT);
+              curl.setopt(constants.CurlOpt.SSL_VERIFYPEER, 1);
+              curl.setopt(constants.CurlOpt.SSL_VERIFYHOST, 2);
+              curl.setopt(constants.CurlOpt.CAINFO, certPath);
+              curl.setopt(constants.CurlOpt.PROXY_CAINFO, certPath);
+              curl.setopt(constants.CurlOpt.SSLVERSION, constants.CurlSslVersion.DEFAULT);
             }
           }
 
           if (opts.referer) {
-            curl.setopt(constants.CURLOPT.REFERER, opts.referer);
+            curl.setopt(constants.CurlOpt.REFERER, opts.referer);
           }
           if (opts.acceptEncoding) {
-            curl.setopt(constants.CURLOPT.ACCEPT_ENCODING, opts.acceptEncoding);
+            curl.setopt(constants.CurlOpt.ACCEPT_ENCODING, opts.acceptEncoding);
           }
 
           //指纹
@@ -389,18 +389,18 @@ async function request(options: RequestOptions): Promise<Response> {
           if (opts.ipType) {
             switch (opts.ipType) {
               case 'ipv4':
-                curl.setopt(constants.CURLOPT.IPRESOLVE, constants.CURL_IP_RESOLVE.V4);
+                curl.setopt(constants.CurlOpt.IPRESOLVE, constants.CurlIpResolve.V4);
                 break;
               case 'ipv6':
-                curl.setopt(constants.CURLOPT.IPRESOLVE, constants.CURL_IP_RESOLVE.V6);
+                curl.setopt(constants.CurlOpt.IPRESOLVE, constants.CurlIpResolve.V6);
                 break;
               case 'auto':
-                curl.setopt(constants.CURLOPT.IPRESOLVE, constants.CURL_IP_RESOLVE.WHATEVER);
+                curl.setopt(constants.CurlOpt.IPRESOLVE, constants.CurlIpResolve.WHATEVER);
                 break;
             }
           }
 
-          curl.setopt(constants.CURLOPT.MAX_RECV_SPEED_LARGE, 0);
+          curl.setopt(constants.CurlOpt.MAX_RECV_SPEED_LARGE, 0);
 
           //------开始请求------
           const resp = await executeRequest(curl);

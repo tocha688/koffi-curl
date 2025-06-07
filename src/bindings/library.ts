@@ -76,6 +76,15 @@ function getLibraryPath(): string {
     return fullPath;
 }
 
+export const CURLMsg = koffi.struct("CURLMsg", {
+    msg: "int",
+    easy_handle: "void*",
+    data: koffi.union("data", {
+        whatever: "void*",
+        result: "int"
+    })
+});
+
 // 声明 libcurl 函数
 const libcurl = koffi.load(getLibraryPath());
 
@@ -156,21 +165,20 @@ export const lib = {
     curl_multi_wait: libcurl.func('curl_multi_wait', 'int', ['void*', 'void*', 'unsigned int', 'int', 'void*']),
     curl_multi_poll: libcurl.func('curl_multi_poll', 'int', ['void*', 'void*', 'unsigned int', 'int', 'void*']),
     curl_multi_wakeup: libcurl.func('curl_multi_wakeup', 'int', ['void*']),
-    curl_multi_info_read: libcurl.func('curl_multi_info_read', 'void*', ['void*', 'void*']),
+    curl_multi_info_read: libcurl.func('curl_multi_info_read', "CURLMsg*", ['void*', 'void*']),
     curl_multi_strerror: libcurl.func('curl_multi_strerror', 'string', ['int']),
     //opt
     curl_multi_setopt_string: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', 'string']),
     curl_multi_setopt_long: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', 'int64_t']),
     curl_multi_setopt_pointer: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', 'void*']),
-    // curl_multi_setopt_callback: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', koffi.pointer(headerCallbackProto)]),
     curl_multi_setopt_socket_callback: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', koffi.pointer(socketCallbackProto)]),
     curl_multi_setopt_timer_callback: libcurl.func('curl_multi_setopt', 'int', ['void*', 'int', koffi.pointer(timerCallbackProto)]),
 };
 
 // 初始化 libcurl
 lib.curl_global_init(3); // CURL_GLOBAL_ALL
-// 初始化 libcurl
-// 在进程退出时清理l_init(3); // CURL_GLOBAL_ALL
+
+// 在进程退出时清理
 process.on('exit', () => {
-    lib.curl_global_cleanup();// 在进程退出时清理
+    lib.curl_global_cleanup();
 });

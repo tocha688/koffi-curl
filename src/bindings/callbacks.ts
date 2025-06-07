@@ -65,11 +65,14 @@ export function createTimerCallback(
   const timerCallback = function (curlm: any, timeout_ms: number, userdata: any) {
     try {
       const jsCallback = getReference(id) as (timeoutMs: number) => void;
-      jsCallback(timeout_ms);
+      // 使用 setImmediate 延迟执行，避免在回调内阻塞
+      setImmediate(() => {
+        jsCallback(timeout_ms);
+      });
       return 0;
     } catch (err) {
       debug('Timer callback 错误:', err);
-      return 0;
+      return -1; // 返回错误码而不是 0
     }
   };
   
@@ -87,11 +90,14 @@ export function createSocketCallback(
   const socketCallback = function (curl: any, sockfd: number, what: number, userdata: any, socketp: any) {
     try {
       const jsCallback = getReference(id) as (sockfd: number, what: number) => void;
-      jsCallback(sockfd, what);
+      // 使用 setImmediate 延迟执行，避免在回调内阻塞
+      setImmediate(() => {
+        jsCallback(sockfd, what);
+      });
       return 0;
     } catch (err) {
       debug('Socket callback 错误:', err);
-      return 0;
+      return -1; // 返回错误码而不是 0
     }
   };
   

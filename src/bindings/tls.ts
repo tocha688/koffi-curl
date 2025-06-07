@@ -1,11 +1,11 @@
-import { CURL_SSLVERSION } from "./constants";
+import { CurlSslVersion } from "./constants";
 
 // TLS 版本映射 (对应 python 中的 TLS_VERSION_MAP)
 export const TLS_VERSION_MAP: { [key: number]: number } = {
-  0x0301: CURL_SSLVERSION.TLSv1_0,  // 769
-  0x0302: CURL_SSLVERSION.TLSv1_1,  // 770  
-  0x0303: CURL_SSLVERSION.TLSv1_2,  // 771
-  0x0304: CURL_SSLVERSION.TLSv1_3,  // 772
+  0x0301: CurlSslVersion.TLSv1_0,  // 769
+  0x0302: CurlSslVersion.TLSv1_1,  // 770  
+  0x0303: CurlSslVersion.TLSv1_2,  // 771
+  0x0304: CurlSslVersion.TLSv1_3,  // 772
 };
 
 // TLS 密码套件映射 (对应 python 中的 TLS_CIPHER_NAME_MAP)

@@ -147,15 +147,17 @@ export function createStringPointerBuffer(): { buffer: Buffer, ptr: Pointer, rea
  * 创建一个指向长整数的缓冲区
  * @returns 缓冲区和读取函数
  */
-export function createLongPointerBuffer(): { buffer: Buffer, ptr: Pointer, readLong: () => number } {
+export function createLongPointerBuffer() {
   const buffer = Buffer.alloc(8); // 64位整数
   buffer.fill(0);
-  
   return {
     buffer,
     ptr: bufferToPointer(buffer),
     readLong: () => {
       return Number(buffer.readBigInt64LE(0));
+    },
+    writeLong: (value: number) => {
+      buffer.writeBigInt64LE(BigInt(value), 0);
     }
   };
 }

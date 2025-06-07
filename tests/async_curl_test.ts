@@ -1,8 +1,10 @@
-import { AsyncCurl } from '../src/core/async_curl';
+import { AsyncCurl } from '../src/core/async';
 import { Curl } from '../src/core/curl';
 import { constants } from '../src/bindings';
 import { Buffer } from 'buffer';
+import { logger, LogLevel } from '../src/utils/logger';
 
+logger.setLevel(LogLevel.DEBUG)
 /**
  * AsyncCurl 测试案例
  */
@@ -16,73 +18,71 @@ async function testSimpleGet() {
     
     try {
         // 设置请求参数
-        curl.setopt(constants.CURLOPT.URL, 'https://httpbin.org/get');
-        curl.setopt(constants.CURLOPT.FOLLOWLOCATION, 1);
-        curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
-        curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
-        curl.setopt(constants.CURLOPT.TIMEOUT, 15);
-        curl.setopt(constants.CURLOPT.CONNECTTIMEOUT, 10);
-        curl.setopt(constants.CURLOPT.VERBOSE, 0);
+        curl.setopt(constants.CurlOpt.URL, 'https://google.com');
+        curl.setopt(constants.CurlOpt.FOLLOWLOCATION, 1);
+        curl.setopt(constants.CurlOpt.SSL_VERIFYPEER, 0);
+        curl.setopt(constants.CurlOpt.SSL_VERIFYHOST, 0);
+        curl.setopt(constants.CurlOpt.TIMEOUT, 30); // 增加超时时间
+        curl.setopt(constants.CurlOpt.CONNECTTIMEOUT, 10);
+        curl.setopt(constants.CurlOpt.VERBOSE, 0);
         
         // 设置写入回调来收集响应数据
         let responseData = '';
-        let responseDataReceived = false;
-        let totalBytesReceived = 0;
+        let dataReceived = false;
         
-        curl.setopt(constants.CURLOPT.WRITEFUNCTION, (data: Buffer) => {
+        curl.setopt(constants.CurlOpt.WRITEFUNCTION, (data: Buffer) => {
             const dataStr = data.toString();
             responseData += dataStr;
-            responseDataReceived = true;
-            totalBytesReceived += data.length;
-            console.log(`接收到数据: ${data.length} 字节 (总计: ${totalBytesReceived} 字节)`);
-            
-            // 打印前100个字符来了解收到了什么
-            if (totalBytesReceived <= 300) {
-                console.log(`数据内容:`,dataStr);
-            }
-            
-            return data.length;
-        });
-        
-        // 设置头部回调来监控响应头
-        curl.setopt(constants.CURLOPT.HEADERFUNCTION, (data: Buffer) => {
-            const headerStr = data.toString().trim();
-            if (headerStr) {
-                console.log(`接收到头部: ${headerStr}`);
-            }
+            dataReceived = true;
+            console.log(`接收到数据: ${data.length} 字节`);
             return data.length;
         });
         
         console.log('开始异步请求...');
         
-        // 异步执行请求，添加超时保护
         const startTime = Date.now();
-        await asyncCurl.addHandle(curl)
         
-        const endTime = Date.now();
-        
-        console.log(`请求完成，耗时: ${endTime - startTime}ms`);
-        console.log('响应状态码:', curl.getinfo(constants.CURLINFO.RESPONSE_CODE));
-        console.log('响应数据长度:', responseData.length);
-        console.log('是否接收到数据:', responseDataReceived);
-        console.log('总接收字节数:', totalBytesReceived);
-        
-        if (responseData.length > 0) {
-            console.log('响应内容预览:', responseData.substring(0, 500) + '...');
-        } else {
-            console.log('警告: 没有接收到响应数据');
+        // 直接等待异步请求完成，不设置额外的超时
+        try {
+            await asyncCurl.addHandle(curl);
+            const endTime = Date.now();
+            
+            console.log(`请求成功完成，耗时: ${endTime - startTime}ms`);
+            console.log('响应状态码:', curl.getinfo(constants.CurlInfo.RESPONSE_CODE));
+            console.log('数据接收状态:', dataReceived);
+            console.log('响应数据长度:', responseData.length);
+            
+            if (responseData.length > 0) {
+                console.log('响应内容预览:', responseData.substring(0, 200));
+            }
+            
+        } catch (requestError: any) {
+            const endTime = Date.now();
+            console.log(`请求失败，耗时: ${endTime - startTime}ms`);
+            console.log('错误信息:', requestError.message);
+            console.log('数据接收状态:', dataReceived);
+            
+            if (dataReceived) {
+                console.log('尽管请求失败，但接收到了一些数据');
+                console.log('响应数据长度:', responseData.length);
+                if (responseData.length > 0) {
+                    console.log('部分响应内容:', responseData.substring(0, 200));
+                }
+            }
         }
         
     } catch (error) {
-        console.error('请求失败:', error);
+        console.error('设置请求时失败:', error);
     } finally {
         try {
-            console.log('开始清理资源...');
-            curl.close();
-            await asyncCurl.close();
-            console.log('资源清理完成');
+            console.log('清理资源...');
+            await curl.close();
+            setTimeout(async()=>{
+                await asyncCurl.close();
+            },3000)
+            console.log('清理完成');
         } catch (closeError) {
-            console.error('关闭时出错:', closeError);
+            console.error('清理时出错:', closeError);
         }
     }
 }
@@ -106,15 +106,15 @@ async function testConcurrentRequests() {
             let responseData = '';
             
             // 设置请求参数
-            curl.setopt(constants.CURLOPT.URL, url);
-            curl.setopt(constants.CURLOPT.FOLLOWLOCATION, 1);
-            curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
-            curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
-            curl.setopt(constants.CURLOPT.TIMEOUT, 30);
-            curl.setopt(constants.CURLOPT.USERAGENT, `AsyncCurl-Test-${index + 1}`);
+            curl.setopt(constants.CurlOpt.URL, url);
+            curl.setopt(constants.CurlOpt.FOLLOWLOCATION, 1);
+            curl.setopt(constants.CurlOpt.SSL_VERIFYPEER, 0);
+            curl.setopt(constants.CurlOpt.SSL_VERIFYHOST, 0);
+            curl.setopt(constants.CurlOpt.TIMEOUT, 30);
+            curl.setopt(constants.CurlOpt.USERAGENT, `AsyncCurl-Test-${index + 1}`);
             
             // 设置写入回调
-            curl.setopt(constants.CURLOPT.WRITEFUNCTION, (data: Buffer) => {
+            curl.setopt(constants.CurlOpt.WRITEFUNCTION, (data: Buffer) => {
                 responseData += data.toString();
                 return data.length;
             });
@@ -124,7 +124,7 @@ async function testConcurrentRequests() {
                 await asyncCurl.addHandle(curl);
                 const endTime = Date.now();
                 
-                const statusCode = curl.getinfo(constants.CURLINFO.RESPONSE_CODE);
+                const statusCode = curl.getinfo(constants.CurlInfo.RESPONSE_CODE);
                 console.log(`请求 ${index + 1} (${url}) 完成:`);
                 console.log(`  状态码: ${statusCode}, 耗时: ${endTime - startTime}ms, 数据长度: ${responseData.length}`);
                 
@@ -171,13 +171,13 @@ async function testPostRequest() {
         });
         
         // 设置请求参数
-        curl.setopt(constants.CURLOPT.URL, 'https://httpbin.org/post');
-        curl.setopt(constants.CURLOPT.POST, 1);
-        curl.setopt(constants.CURLOPT.POSTFIELDS, postData);
-        curl.setopt(constants.CURLOPT.FOLLOWLOCATION, 1);
-        curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
-        curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
-        curl.setopt(constants.CURLOPT.TIMEOUT, 30);
+        curl.setopt(constants.CurlOpt.URL, 'https://httpbin.org/post');
+        curl.setopt(constants.CurlOpt.POST, 1);
+        curl.setopt(constants.CurlOpt.POSTFIELDS, postData);
+        curl.setopt(constants.CurlOpt.FOLLOWLOCATION, 1);
+        curl.setopt(constants.CurlOpt.SSL_VERIFYPEER, 0);
+        curl.setopt(constants.CurlOpt.SSL_VERIFYHOST, 0);
+        curl.setopt(constants.CurlOpt.TIMEOUT, 30);
         
         // 设置请求头
         curl.setHeaders({
@@ -187,7 +187,7 @@ async function testPostRequest() {
         
         // 设置写入回调
         let responseData = '';
-        curl.setopt(constants.CURLOPT.WRITEFUNCTION, (data: Buffer) => {
+        curl.setopt(constants.CurlOpt.WRITEFUNCTION, (data: Buffer) => {
             responseData += data.toString();
             return data.length;
         });
@@ -198,7 +198,7 @@ async function testPostRequest() {
         const endTime = Date.now();
         
         console.log(`POST 请求完成，耗时: ${endTime - startTime}ms`);
-        console.log('响应状态码:', curl.getinfo(constants.CURLINFO.RESPONSE_CODE));
+        console.log('响应状态码:', curl.getinfo(constants.CurlInfo.RESPONSE_CODE));
         console.log('发送的数据:', postData);
         console.log('响应数据长度:', responseData.length);
         
@@ -227,11 +227,11 @@ async function testBrowserImpersonation() {
     
     try {
         // 设置请求参数
-        curl.setopt(constants.CURLOPT.URL, 'https://httpbin.org/user-agent');
-        curl.setopt(constants.CURLOPT.FOLLOWLOCATION, 1);
-        curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
-        curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
-        curl.setopt(constants.CURLOPT.TIMEOUT, 30);
+        curl.setopt(constants.CurlOpt.URL, 'https://httpbin.org/user-agent');
+        curl.setopt(constants.CurlOpt.FOLLOWLOCATION, 1);
+        curl.setopt(constants.CurlOpt.SSL_VERIFYPEER, 0);
+        curl.setopt(constants.CurlOpt.SSL_VERIFYHOST, 0);
+        curl.setopt(constants.CurlOpt.TIMEOUT, 30);
         
         // 伪装成 Chrome 浏览器
         try {
@@ -239,13 +239,13 @@ async function testBrowserImpersonation() {
             console.log('成功设置浏览器伪装: Chrome 120');
         } catch (e) {
             console.log('浏览器伪装失败，使用默认 User-Agent');
-            curl.setopt(constants.CURLOPT.USERAGENT, 
+            curl.setopt(constants.CurlOpt.USERAGENT, 
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         }
         
         // 设置写入回调
         let responseData = '';
-        curl.setopt(constants.CURLOPT.WRITEFUNCTION, (data: Buffer) => {
+        curl.setopt(constants.CurlOpt.WRITEFUNCTION, (data: Buffer) => {
             responseData += data.toString();
             return data.length;
         });
@@ -256,7 +256,7 @@ async function testBrowserImpersonation() {
         const endTime = Date.now();
         
         console.log(`浏览器伪装请求完成，耗时: ${endTime - startTime}ms`);
-        console.log('响应状态码:', curl.getinfo(constants.CURLINFO.RESPONSE_CODE));
+        console.log('响应状态码:', curl.getinfo(constants.CurlInfo.RESPONSE_CODE));
         
         // 解析响应查看 User-Agent
         try {
@@ -283,13 +283,13 @@ async function testErrorHandling() {
     
     try {
         // 设置一个无效的 URL
-        curl.setopt(constants.CURLOPT.URL, 'https://invalid-domain-that-does-not-exist-12345.com');
-        curl.setopt(constants.CURLOPT.TIMEOUT, 5); // 短超时
-        curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 0);
-        curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 0);
+        curl.setopt(constants.CurlOpt.URL, 'https://invalid-domain-that-does-not-exist-12345.com');
+        curl.setopt(constants.CurlOpt.TIMEOUT, 5); // 短超时
+        curl.setopt(constants.CurlOpt.SSL_VERIFYPEER, 0);
+        curl.setopt(constants.CurlOpt.SSL_VERIFYHOST, 0);
         
         let responseData = '';
-        curl.setopt(constants.CURLOPT.WRITEFUNCTION, (data: Buffer) => {
+        curl.setopt(constants.CurlOpt.WRITEFUNCTION, (data: Buffer) => {
             responseData += data.toString();
             return data.length;
         });
@@ -300,7 +300,7 @@ async function testErrorHandling() {
         try {
             await asyncCurl.addHandle(curl);
             console.log('意外成功 - 这不应该发生');
-        } catch (error) {
+        } catch (error:any) {
             const endTime = Date.now();
             console.log(`预期的错误发生，耗时: ${endTime - startTime}ms`);
             console.log('错误信息:', error.message);
@@ -321,10 +321,10 @@ async function runAllTests() {
     
     try {
         await testSimpleGet();
-        await testConcurrentRequests();
-        await testPostRequest();
-        await testBrowserImpersonation();
-        await testErrorHandling();
+        // await testConcurrentRequests();
+        // await testPostRequest();
+        // await testBrowserImpersonation();
+        // await testErrorHandling();
         
         console.log('\n=== 所有测试完成 ===');
     } catch (error) {

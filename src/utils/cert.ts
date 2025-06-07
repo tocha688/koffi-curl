@@ -5,8 +5,8 @@ import { getLibHome } from "../bindings/library";
 
 export function getCertPath(): string | undefined {
     // 启用SSL验证
-    // curl.setopt(constants.CURLOPT.SSL_VERIFYPEER, 1);
-    // curl.setopt(constants.CURLOPT.SSL_VERIFYHOST, 2);
+    // curl.setopt(constants.CurlOpt.SSL_VERIFYPEER, 1);
+    // curl.setopt(constants.CurlOpt.SSL_VERIFYHOST, 2);
     // 首先尝试使用项目内置的CA证书
     const projectCaPath = path.join(getLibHome(), 'cacert.pem');
     if (fs.existsSync(projectCaPath)) {

@@ -13,7 +13,7 @@ export type CURLSH = any;
 export type CURLM = any;
 export type CURLcode = number;
 export type CURLMcode = number;
-export type CURLINFO = number;
+export type CurlInfo = number;
 export type CURLoption = number;
 
 // 避免使用 curl_slist 命名，防止冲突

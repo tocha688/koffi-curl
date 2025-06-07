@@ -64,7 +64,7 @@ export class WebSocket extends EventEmitter {
   private setupCurl(url: string): void {
     // 设置WebSocket URL (ws:// -> http://, wss:// -> https://)
     const httpUrl = url.replace(/^ws/, 'http');
-    this.curl.setopt(constants.CURLOPT.URL, httpUrl);
+    this.curl.setopt(constants.CurlOpt.URL, httpUrl);
 
     // 设置WebSocket升级头
     const headers = [
@@ -79,13 +79,13 @@ export class WebSocket extends EventEmitter {
       headers.push('Sec-WebSocket-Protocol: ' + this.options.protocols.join(', '));
     }
 
-    this.curl.setopt(constants.CURLOPT.HTTPHEADER, headers);
+    this.curl.setopt(constants.CurlOpt.HTTPHEADER, headers);
 
     // 设置超时
-    this.curl.setopt(constants.CURLOPT.TIMEOUT, Math.floor(this.options.timeout / 1000));
+    this.curl.setopt(constants.CurlOpt.TIMEOUT, Math.floor(this.options.timeout / 1000));
 
     // 设置回调处理WebSocket数据
-    this.curl.setopt(constants.CURLOPT.WRITEFUNCTION, (data: Buffer) => {
+    this.curl.setopt(constants.CurlOpt.WRITEFUNCTION, (data: Buffer) => {
       this.handleWebSocketData(data);
       return data.length;
     });
@@ -116,7 +116,7 @@ export class WebSocket extends EventEmitter {
           return;
         }
 
-        const responseCode = this.curl.getinfo(constants.CURLINFO.RESPONSE_CODE);
+        const responseCode = this.curl.getinfo(constants.CurlInfo.RESPONSE_CODE);
         
         if (responseCode === 101) {
           this.connected = true;
