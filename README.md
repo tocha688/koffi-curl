@@ -1,5 +1,9 @@
 # Koffi-Curl
 
+>⚠️ **Warn**: This module is deprecated, please use [curl-cffi-node](https://github.com/tocha688/curl-cffi-node)
+
+>⚠️ **警告**: 此模块弃用，请使用[curl-cffi-node](https://github.com/tocha688/curl-cffi-node)
+
 [![npm version](https://badge.fury.io/js/koffi-curl.svg)](https://badge.fury.io/js/koffi-curl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/node/v/koffi-curl.svg)](https://nodejs.org/)
